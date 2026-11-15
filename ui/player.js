@@ -259,6 +259,9 @@ function lyrRender() {
 function setLyr(state) { L.state = state; lyrPill(); lyrRender(); }
 function applyLyr(r) {
   L.data = r;
+  const rd = r && r.dur > 0 && S.dur > 0 ? (S.dur / 1000) / r.dur : 1;      // a slowed / sped-up copy of the song: stretch the
+  if (r && r.synced && rd > 0.7 && rd < 1.45 && Math.abs(rd - 1) > 0.03)    // line stamps by the same ratio and they line up again
+    L.data = { ...r, synced: r.synced.map(([t, x]) => [Math.round(t * rd), x]) };
   if (r.instrumental) setLyr('instr');
   else if (r.synced && r.synced.length) setLyr('synced');
   else if (r.plain) { r.plain = Array.isArray(r.plain) ? r.plain : Lyr.parsePlain(r.plain); setLyr('plain'); }

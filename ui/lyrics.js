@@ -29,7 +29,8 @@ const parsePlain = (text) => String(text || '').split(/\r?\n/).map((l) => l.trim
 const clean = (s) => String(s || '')
   .replace(/\.(mp3|m4a|flac|wav|ogg|opus|aac|wma)$/i, '')
   .replace(/^\s*\d{1,3}\s*[-._)]\s*/, '')
-  .replace(/[(\[][^)\]]*(feat|ft\.|official|lyrics?|audio|video|remaster|live|hd|hq|visuali[sz]er|\d{4})[^)\]]*[)\]]/gi, '')
+  .replace(/[(\[][^)\]]*(feat|ft\.|official|lyrics?|audio|video|remaster|live|hd|hq|visuali[sz]er|slowed|reverb|sped|nightcore|remix|bass\s*boosted|\d{4})[^)\]]*[)\]]/gi, '')
+  .replace(/\s*[-–—]\s*(slowed|sped up|nightcore|reverb).*$/i, '')
   .replace(/\s+/g, ' ').trim();
 async function jget(url) {
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 9000);
@@ -41,25 +42,31 @@ async function jget(url) {
   } finally { clearTimeout(timer); }
 }
 const usable = (r) => r && (r.syncedLyrics || r.plainLyrics || r.instrumental);
-function pick(list, dur) {                    // the right song, not just a song with the same name: length within a few seconds, synced first
-  let best = null, bs = -1e9;
-  for (const r of Array.isArray(list) ? list : []) {
-    if (!usable(r)) continue;
-    const known = dur > 0 && r.duration > 0, dd = known ? Math.abs(r.duration - dur) : 0;
-    if (known && dd > 6) continue;
-    const sc = (r.syncedLyrics ? 100 : 0) - dd * 5;
-    if (sc > bs) { bs = sc; best = r; }
+function pick(list, dur) {                    // the right song, not just a song with the same name: closest length first, synced first.
+  const cands = (Array.isArray(list) ? list : []).filter(usable);   // Community uploads (Persian tracks especially) often carry a
+  for (const gate of [6, 20, Infinity]) {                            // very different length, so a hard gate finds nothing at all:
+    let best = null, bs = -1e9;                                       // widen it, and only as a last resort take the best name match.
+    for (const r of cands) {
+      const known = dur > 0 && r.duration > 0, dd = known ? Math.abs(r.duration - dur) : 0;
+      if (known && dd > gate) continue;
+      const sc = (r.syncedLyrics ? 100 : 0) - Math.min(dd, 120) * 2;
+      if (sc > bs) { bs = sc; best = r; }
+    }
+    if (best) return best;
   }
-  return best;
+  return null;
 }
 async function find(title, artist, dur) {     // dur in seconds (0 = unknown)
   const t = clean(title), a = clean(artist);
   if (!t) return null;
   let hit = null;
-  if (a) {                                    // 1. the exact lookup
-    const u = new URLSearchParams({ track_name: t, artist_name: a });
-    if (dur >= 1 && dur <= 3600) u.set('duration', String(Math.round(dur)));
-    hit = await jget(`${API}/get?${u}`); if (!usable(hit)) hit = null;
+  if (a) {                                    // 1. the exact lookup — without the length first: LRCLIB 404s the whole lookup
+    hit = await jget(`${API}/get?${new URLSearchParams({ track_name: t, artist_name: a })}`);   // when the length is off, and
+    if (!usable(hit)) hit = null;             // community lengths are often off by a lot
+    if (!hit && dur >= 1 && dur <= 3600) {
+      hit = await jget(`${API}/get?${new URLSearchParams({ track_name: t, artist_name: a, duration: String(Math.round(dur)) })}`);
+      if (!usable(hit)) hit = null;
+    }
   }
   if (!hit) {                                 // 2. a search by name, picked by length
     const u = new URLSearchParams({ track_name: t }); if (a) u.set('artist_name', a);
@@ -68,7 +75,7 @@ async function find(title, artist, dur) {     // dur in seconds (0 = unknown)
   if (!hit) hit = pick(await jget(`${API}/search?${new URLSearchParams({ q: (a + ' ' + t).trim() })}`), dur);      // 3. loosest
   if (!hit) return null;
   const synced = hit.syncedLyrics ? parseLRC(hit.syncedLyrics) : [];
-  return { src: 'lrclib', synced: synced.length ? synced : null, plain: hit.plainLyrics || null, instrumental: !!hit.instrumental && !synced.length && !hit.plainLyrics };
+  return { src: 'lrclib', synced: synced.length ? synced : null, plain: hit.plainLyrics || null, dur: hit.duration || 0, instrumental: !!hit.instrumental && !synced.length && !hit.plainLyrics };
 }
 
 // ---- cache (this window's own storage; the newest 150 songs are kept)
