@@ -1,0 +1,67 @@
+name: build
+
+# Every push builds the Windows app. A tag like v2.1.0 also publishes it as a release:
+# installer, portable exe, zip, the installer's signature and latest.json (what the in-app updater reads).
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Build
+        working-directory: src-tauri
+        run: cargo build --release --locked
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") { throw "tag $env:GITHUB_REF_NAME does not match Cargo.toml version $version" }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path $nsis)) { choco install nsis -y --no-progress; }
+          & $nsis /V2 "/DVERSION=$version" installer/island.nsi
+          if ($LASTEXITCODE -ne 0) { throw "makensis failed" }
+          Copy-Item src-tauri/target/release/peeky.exe dist/Peeky-Portable.exe
+          New-Item -ItemType Directory -Force dist/zip | Out-Null
+          Copy-Item src-tauri/target/release/peeky.exe dist/zip/Peeky.exe
+          Copy-Item LICENSE, README.md dist/zip/
+          Compress-Archive -Path dist/zip/* -DestinationPath dist/Peeky-Windows.zip
+          Remove-Item -Recurse dist/zip
+          @{ version = $version; published = (Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json | Set-Content dist/latest.json -Encoding utf8NoBOM
+          "VERSION=$version" >> $env:GITHUB_ENV
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - name: Sign the installer
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          PEEKY_SIGN_KEY: ${{ secrets.PEEKY_SIGN_KEY }}
+        run: node installer/sign.mjs dist/Peeky-Setup.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Peeky-Windows-${{ env.VERSION }}
+          path: dist/*
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Peeky ${{ env.VERSION }}
+          generate_release_notes: true
+          files: dist/*

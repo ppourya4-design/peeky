@@ -1,0 +1,18 @@
+# build output
+/dist/
+/src-tauri/target/
+node_modules/
+
+# the first (Electron) version of the app, kept on disk only
+/main.js
+/preload.js
+/helper.ps1
+/start.vbs
+/renderer/
+/build/
+/package.json
+/package-lock.json
+
+# local tooling
+/.claude/
+*.pem

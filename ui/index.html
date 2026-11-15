@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Peeky</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="glow"></div>
+<svg width="0" height="0" style="position:absolute"><filter id="goo-f"><feGaussianBlur in="SourceGraphic" stdDeviation="3.2"/><feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9"/></filter></svg>
+<canvas id="goo" width="700" height="96"></canvas>
+<canvas id="fx" width="700" height="110"></canvas>
+
+<div id="island">
+  <canvas id="sky"></canvas>
+
+  <!-- idle: just the time (or a running countdown) -->
+  <div class="view on" data-view="idle">
+    <span id="i-face"><i></i><i></i></span><span id="i-time">--:--</span><span id="i-shelf"></span>
+  </div>
+
+  <!-- hover on idle: a one-line tray -->
+  <div class="view" data-view="tools">
+    <span id="t-time" class="strong">--:--</span>
+    <span id="t-date" class="dim" title="Click to switch calendar"></span>
+    <span id="t-bat" class="dim"></span>
+    <span id="t-net" class="tag"></span>
+    <span class="sep"></span>
+    <button class="ib hidden" id="t-track" data-icon="note" title="Back to now playing"></button>
+    <button class="ib" id="t-play" data-icon="play" title="Play / Pause"></button>
+    <button class="ib" data-act="screenshot" data-icon="shot" title="Screenshot"></button>
+    <button class="ib" data-act="ocr" data-icon="scan" title="Grab text from the screen: drag a box around it (Ctrl+Alt+T)"></button>
+    <button class="ib" data-act="clips" id="t-clips" data-icon="clipboard" title="Clipboard history"></button>
+    <button class="ib" data-act="music" id="t-music" data-icon="music" title="Your music: pick a folder and play it here"></button>
+    <button class="ib" data-act="notes" id="t-notes" data-icon="jot" title="Quick note (Ctrl+Alt+N)"></button>
+    <button class="ib" data-act="vault" id="t-vault" data-icon="key" title="Passwords"></button>
+    <button class="ib hidden" data-act="speedo" id="t-speedo" data-icon="shield" title="Speedo VPN"></button>
+    <button class="ib" data-act="timer" data-icon="timer" title="Timer"></button>
+    <button class="ib hidden" data-act="shelf" id="t-shelf" data-icon="tray" draggable="true" title="File shelf — click to see the files, drag this button to take them all"></button>
+    <button class="ib" data-act="inbox" id="t-inbox" data-icon="bell" title="Notifications"></button>
+    <button class="ib" data-act="settings" id="t-gear" data-icon="gear" title="Settings"></button>
+  </div>
+
+  <!-- now playing -->
+  <div class="view" data-view="media">
+    <div id="art"></div>
+    <div class="meta">
+      <div id="m-title">Nothing playing</div>
+      <div id="m-artist"></div>
+    </div>
+    <!-- the volume slider opens right here, in place of the title, when the speaker button is pressed -->
+    <div class="mvol" id="m-vol">
+      <div class="vbar" id="m-vbar"><i id="m-vfill"></i></div>
+      <b id="m-vnum" title="Click to mute">50</b>
+    </div>
+    <canvas id="bars" width="60" height="40"></canvas>
+    <span id="m-timer"></span>
+    <button class="ib" id="b-prev" data-icon="prev" title="Previous"></button>
+    <button class="ib solid" id="b-play" data-icon="play" title="Play / Pause"></button>
+    <button class="ib" id="b-next" data-icon="next" title="Next"></button>
+    <button class="ib small" id="b-vol" data-icon="volume" title="Volume"></button>
+    <button class="ib small" id="b-more" data-icon="more" title="Main menu (stays until you switch back to the track)"></button>
+  </div>
+
+  <!-- incoming notification (same line, replaces whatever is showing) -->
+  <div class="view" data-view="notif">
+    <div id="n-icon"></div>
+    <span id="n-app" class="dim"></span>
+    <span id="n-title" class="strong" dir="auto"></span>
+    <span id="n-body" class="mqbox" dir="auto"><span class="mq"></span></span>
+  </div>
+
+  <!-- short status line: copied text, charger, Bluetooth device, files held -->
+  <div class="view" data-view="hud">
+    <span id="h-icon" class="glyph"></span>
+    <span id="h-title" class="strong" dir="auto"></span>
+    <span id="h-text" class="mqbox" dir="auto"><span class="mq"></span></span>
+  </div>
+
+  <!-- a file is being dragged over the pill -->
+  <div class="view" data-view="drop">
+    <span class="glyph" data-icon="tray"></span>
+    <span class="strong">Drop to hold</span>
+  </div>
+
+  <!-- files being held: they sit on the pill, side by side, until they are dragged out again -->
+  <div class="view" data-view="held">
+    <div id="hd-files"></div>
+    <button id="hd-more" class="dim" title="Show all the files"></button>
+    <button class="ib small" id="hd-menu" data-icon="more" title="Menu"></button>
+  </div>
+
+  <!-- volume HUD -->
+  <div class="view" data-view="vol" title="Click to mute">
+    <span id="v-icon" class="glyph" data-icon="volume"></span>
+    <div class="vbar" id="v-bar"><i id="v-fill"></i></div>
+    <b id="v-num">50</b>
+  </div>
+
+  <!-- timer -->
+  <div class="view" data-view="timer">
+    <span class="glyph amber" data-icon="timer"></span>
+    <button class="ib small" id="tm-minus" data-icon="minus" title="Less"></button>
+    <span id="tm-time">25:00</span>
+    <button class="ib small" id="tm-plus" data-icon="plus" title="More"></button>
+    <button class="ib solid" id="tm-start" data-icon="play" title="Start / Pause"></button>
+    <button class="ib" id="tm-reset" data-icon="reset" title="Reset"></button>
+  </div>
+
+  <!-- one line of typing: a quick note, or the steps of saving a password -->
+  <div class="view" data-view="input">
+    <span id="in-icon" class="glyph"></span>
+    <input id="in-text" type="text" spellcheck="false" autocomplete="off" dir="auto">
+    <span id="in-hint" class="dim"></span>
+    <button class="ib small" id="in-ok" data-icon="check" title="Keep (Enter)"></button>
+    <button class="ib small" id="in-cancel" data-icon="close" title="Cancel (Esc)"></button>
+  </div>
+
+  <!-- a fresh password -->
+  <div class="view" data-view="gen">
+    <span class="glyph" data-icon="key"></span>
+    <span id="g-pass"></span>
+    <button class="ib small" id="g-again" data-icon="reset" title="Another one"></button>
+    <button class="ib small" id="g-minus" data-icon="minus" title="Shorter"></button>
+    <span id="g-len" class="dim">18</span>
+    <button class="ib small" id="g-plus" data-icon="plus" title="Longer"></button>
+    <button class="ib small" id="g-sym" title="Symbols on / off">#</button>
+    <button class="ib solid" id="g-ok" data-icon="check" title="Use it: copies it, then asks where it is for"></button>
+  </div>
+
+  <!-- track position: a hairline that becomes a scrubber when the cursor reaches the bottom edge -->
+  <div id="seek"><i id="seek-fill"></i><b id="seek-knob"></b></div>
+
+  <div id="dots"></div>
+  <div id="flash"></div>
+</div>
+
+<!-- a notification that arrives while the pill is being used waits here, beside it -->
+<div id="side"><div class="ic"></div><span dir="auto"></span></div>
+
+<!-- the stack: small pills that drop under the island (notifications, or the files on the shelf) -->
+<div id="stack">
+  <div id="stack-list"></div>
+  <button id="stack-clear">Clear all</button>
+</div>
+
+<script src="bridge.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

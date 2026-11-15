@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Peeky Player</title>
+<link rel="stylesheet" href="player.css">
+</head>
+<body>
+<div class="card" id="card">
+  <div class="bg" id="bg"></div>
+
+  <header id="drag">
+    <span class="brand">Peeky</span>
+    <span class="grow"></span>
+    <button class="wb" id="w-min" title="Minimize"><svg viewBox="0 0 24 24"><path d="M6 12h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <button class="wb" id="w-close" title="Close the player"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  </header>
+
+  <section class="nowp">
+    <div class="cover" id="cover"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M10 4v10.2a3.2 3.2 0 1 0 2 3V8h5V4z"/></svg></div>
+    <div class="titles">
+      <div class="title" id="title" dir="auto">Nothing playing</div>
+      <div class="artist" id="artist" dir="auto"></div>
+    </div>
+    <div class="seek" id="seek"><div class="track"><i id="seek-fill"></i><b id="seek-knob"></b></div></div>
+    <div class="times"><span id="t-now">0:00</span><span id="t-all">0:00</span></div>
+    <div class="ctl">
+      <button class="ib" id="c-shuffle" title="Shuffle"></button>
+      <button class="ib" id="c-prev" title="Previous"></button>
+      <button class="ib big" id="c-play" title="Play / Pause"></button>
+      <button class="ib" id="c-next" title="Next"></button>
+      <button class="ib" id="c-mute" title="Mute"></button>
+    </div>
+    <div class="vol"><div class="vtrack" id="vtrack"><i id="vfill"></i><b id="vknob"></b></div><span id="vnum">50</span></div>
+  </section>
+
+  <section class="lib">
+    <div class="libhead">
+      <span class="folder" id="folder" title=""></span>
+      <button class="go" id="pick">Choose folder</button>
+    </div>
+    <input id="q" type="text" placeholder="Search" spellcheck="false" autocomplete="off" dir="auto">
+    <div class="list" id="list"></div>
+  </section>
+
+  <button class="listbtn" id="listbtn" aria-expanded="false" title="Show the music list"><span>List</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+</div>
+<script src="player.js"></script>
+</body>
+</html>
