@@ -125,7 +125,7 @@ function pickView() {
   if (st.manual) return st.manual;
   if (st.shelfOn && st.shelf.length) return 'held';      // held files stay on the pill until they are taken out
   const m = st.media;
-  if (musicOn() && !st.menuMode && (m.playing || now - st.pausedAt < 12000)) return 'media';
+  if (musicOn() && !st.menuMode && (m.playing || now - st.pausedAt < 12000 || m.app === 'peeky')) return 'media';   // the built-in player keeps its view while it holds (up to the 60 s forget window in musicOn)
   if (st.hover && now - st.enteredAt > 130) return 'tools';
   if ((st.hover || now - st.leftAt < 380) && cur === 'tools') return 'tools';
   return 'idle';
@@ -731,7 +731,7 @@ function onMedia(m) {
   setIcon($('#b-play'), icon); setIcon($('#t-play'), icon);
   $('#t-play').classList.toggle('hidden', !st.media.active);
   $('#t-track').classList.toggle('hidden', !(st.menuMode && musicOn()));
-  $('#b-close').classList.toggle('hidden', !(m.active && m.app === 'peeky'));   // the x belongs to the built-in player only
+  $('#b-close').classList.toggle('hidden', !(m.active && m.app === 'peeky' && !m.playing));   // the x belongs to the built-in player, and only once it is paused
   render();
 }
 function setMenuMode(on) {
