@@ -361,7 +361,6 @@ async fn player_open(app: tauri::AppHandle) {
         Err(e) => sys::log(&format!("player window failed: {e}")),
     }
 }
-#[tauri::command]
 /// Closes the player window from the main page (the music player was switched off in Settings).
 #[tauri::command]
 fn player_kill(app: tauri::AppHandle) {
@@ -370,6 +369,7 @@ fn player_kill(app: tauri::AppHandle) {
         let _ = w.close();
     }
 }
+#[tauri::command]
 fn player_drag(window: tauri::WebviewWindow) {
     let _ = window.start_dragging();
 }
