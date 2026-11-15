@@ -86,6 +86,7 @@ window.qazi = {
   musicRead: (path) => invoke('music_read', { path }),
   musicHead: (path) => invoke('music_head', { path }),
   playerOpen: () => quiet(invoke('player_open')),
+  playerKill: () => quiet(invoke('player_kill')),
   playerSend: (name, payload) => quiet(window.__TAURI__.event.emit(name, payload)),
 };
 window.addEventListener('error', (e) => quiet(invoke('debug_out', { text: '[page error] ' + e.message + ' @' + e.lineno })));

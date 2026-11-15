@@ -362,6 +362,14 @@ async fn player_open(app: tauri::AppHandle) {
     }
 }
 #[tauri::command]
+/// Closes the player window from the main page (the music player was switched off in Settings).
+#[tauri::command]
+fn player_kill(app: tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(w) = app.get_webview_window("player") {
+        let _ = w.close();
+    }
+}
 fn player_drag(window: tauri::WebviewWindow) {
     let _ = window.start_dragging();
 }
@@ -464,7 +472,7 @@ fn main() {
             shelf_get, shelf_add, shelf_add_data, shelf_add_url, shelf_remove, shelf_clear, shelf_reveal, shelf_drag, open_download,
             settings_get, settings_set, action, open_url, ocr_done, speedo_cmd, update_check, update_install,
             notes_get, note_save, note_pin, note_fired, note_remove,
-            vault_list, vault_generate, vault_save, vault_copy, copy_secret, vault_reveal, vault_remove, music_pick, music_scan, music_read, music_head, player_open, player_drag, player_min, player_close, debug_out
+            vault_list, vault_generate, vault_save, vault_copy, copy_secret, vault_reveal, vault_remove, music_pick, music_scan, music_read, music_head, player_open, player_kill, player_drag, player_min, player_close, debug_out
         ])
         .setup(move |app| {
             let _ = sys::APP.set(app.handle().clone());

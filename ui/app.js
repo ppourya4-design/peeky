@@ -1859,7 +1859,7 @@ $$('[data-act]').forEach((b) => b.addEventListener('click', async () => {
   if (a === 'vault') { setStack(!(st.stackOpen && st.stackKind === 'vault'), 'vault'); return; }
   if (a === 'clips') { setStack(!(st.stackOpen && st.stackKind === 'clips'), 'clips'); return; }
   if (a === 'speedo') { setStack(!(st.stackOpen && st.stackKind === 'speedo'), 'speedo'); return; }
-  if (a === 'music') { setStack(!(st.stackOpen && st.stackKind === 'music'), 'music'); return; }
+  if (a === 'music') { if ((st.settings || {}).musicEnabled !== false) setStack(!(st.stackOpen && st.stackKind === 'music'), 'music'); return; }
   window.qazi.action(a);
 }));
 
@@ -2188,6 +2188,7 @@ function renderSpeedo() {
 const SETTINGS_UI = [
   ['button', 'tour', 'What Peeky can do', 'Show me'],
   ['button', 'music', 'Local music', 'Open'],
+  ['toggle', 'musicEnabled', 'Music player'],
   ['toggle', 'autoStart', 'Start with Windows'],
   ['toggle', 'autoUpdate', 'Update automatically'],
   ['seg', 'face', 'Resting pill shows', [['eyes', 'Eyes'], ['clock', 'Clock']]],
@@ -2213,6 +2214,7 @@ function renderSettings() {
   $('#stack-clear').classList.add('hidden');
   const s = st.settings || {};
   SETTINGS_UI.forEach(([type, key, label, a, b, unit], i) => {
+    if (key === 'music' && s.musicEnabled === false) return;          // switched off: the Open row goes away too
     const row = document.createElement('div'); row.className = 'row set'; row.style.setProperty('--i', Math.min(i, 6));
     const l = document.createElement('span'); l.className = 'lbl'; l.textContent = label; row.appendChild(l);
     if (type === 'toggle') {
@@ -2282,6 +2284,7 @@ function renderTour() {
   const head = document.createElement('div'); head.className = 'row empty wide'; head.textContent = 'Hover the pill to open its menu';
   stackList.appendChild(head);
   TOUR.forEach(([icon, title, text, act, keys], i) => {
+    if (act === 'music' && (st.settings || {}).musicEnabled === false) return;
     const row = document.createElement('div'); row.className = 'row set sp tour' + (act ? ' can' : ''); row.style.setProperty('--i', Math.min(i + 1, 6));
     const ic = document.createElement('div'); ic.className = 'ic plain'; ic.innerHTML = svg(icon);
     const lbl = document.createElement('span'); lbl.className = 'lbl';
@@ -2352,6 +2355,13 @@ const applySettings = (s) => {
   st.settings = s; st.lastUser = s.lastUser || '';
   if ((s.musicFolder || '') !== local.folder) { local.folder = s.musicFolder || ''; scanLocal(); }
   else if (st.stackOpen && st.stackKind === 'music') renderStack();
+  const mOn = s.musicEnabled !== false;                 // the music player can be switched off entirely: no button, no stack, no window
+  $('#t-music').classList.toggle('hidden', !mOn);
+  if (!mOn) {
+    if (local.on) { local.audio.pause(); local.on = false; local.loading = false; onMedia({ t: 'media', active: false }); }
+    if (st.playerOpen) window.qazi.playerKill();
+    if (st.stackOpen && st.stackKind === 'music') setStack(false);
+  }
   st.gen.len = Number(s.vaultLength) || 18; st.gen.symbols = s.vaultSymbols !== false;
   if (st.stackOpen && st.stackKind === 'settings') { const y = stackList.scrollTop; renderStack(); stackList.scrollTop = y; }
   tick(); render();

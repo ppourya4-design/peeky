@@ -11,7 +11,7 @@ use crate::sys;
 
 static SETTINGS: Mutex<Option<Map<String, Value>>> = Mutex::new(None);
 const THEMES: [&str; 10] = ["black", "nebula", "crystal", "ember", "reactor", "venom", "cloud", "water", "lava", "ice"];
-const BOOLS: [&str; 16] = ["autoUpdate", "musicReact", "netAlerts", "sensorDot", "smartCopy", "autoHide", "hideVideo", "copyPreview", "clipHistory", "deviceAlerts", "downloadAlerts", "shelf", "visuals", "noteHotkey", "vaultSymbols", "musicShuffle"];
+const BOOLS: [&str; 17] = ["autoUpdate", "musicReact", "netAlerts", "sensorDot", "smartCopy", "autoHide", "hideVideo", "copyPreview", "clipHistory", "deviceAlerts", "downloadAlerts", "shelf", "visuals", "noteHotkey", "vaultSymbols", "musicShuffle", "musicEnabled"];
 const CALENDARS: [&str; 4] = ["gregorian", "shamsi", "shamsi-fa", "both"];
 
 fn defaults() -> Map<String, Value> {
@@ -24,6 +24,7 @@ fn defaults() -> Map<String, Value> {
         "musicFolder": "",          // the folder the local player reads
         "musicShuffle": false,
         "musicRepeat": 0,           // local player repeat: 0 off, 1 all, 2 one
+        "musicEnabled": true,       // the whole local music player can be switched off
         "vaultLength": 18, "vaultSymbols": true, "lastUser": "",
         "skin": "black",            // the resting pill: plain black or one of the animated skins
         "musicTheme": "sky",        // what plays behind the track: "sky" (colours of the cover) or a skin
