@@ -2460,7 +2460,7 @@ dependencies = [
 
 [[package]]
 name = "peeky"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "base64 0.22.1",
  "ed25519-compact",

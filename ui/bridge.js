@@ -84,6 +84,7 @@ window.qazi = {
   musicPick: () => invoke('music_pick').catch(() => null),
   musicScan: () => invoke('music_scan').catch(() => []),
   musicRead: (path) => invoke('music_read', { path }),
+  musicHead: (path) => invoke('music_head', { path }),
   playerOpen: () => quiet(invoke('player_open')),
   playerSend: (name, payload) => quiet(window.__TAURI__.event.emit(name, payload)),
 };

@@ -313,6 +313,16 @@ async fn music_read(path: String) -> Result<tauri::ipc::Response, String> {
     .await
     .map_err(|e| e.to_string())?
 }
+#[tauri::command]
+async fn music_head(path: String) -> Result<tauri::ipc::Response, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = settings::get("musicFolder");
+        let root = root.as_str().filter(|r| !r.is_empty()).ok_or_else(|| "no music folder".to_string())?.to_string();
+        music::head(std::path::Path::new(&root), std::path::Path::new(&path)).map(tauri::ipc::Response::new).ok_or_else(|| "not available".to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
 
 // ---------------------------------------------------------------- the player window (a normal small window; the pill keeps the audio)
 /// Opens the music player window, or brings it forward. Async on purpose: building a window from a
@@ -454,7 +464,7 @@ fn main() {
             shelf_get, shelf_add, shelf_add_data, shelf_add_url, shelf_remove, shelf_clear, shelf_reveal, shelf_drag, open_download,
             settings_get, settings_set, action, open_url, ocr_done, speedo_cmd, update_check, update_install,
             notes_get, note_save, note_pin, note_fired, note_remove,
-            vault_list, vault_generate, vault_save, vault_copy, copy_secret, vault_reveal, vault_remove, music_pick, music_scan, music_read, player_open, player_drag, player_min, player_close, debug_out
+            vault_list, vault_generate, vault_save, vault_copy, copy_secret, vault_reveal, vault_remove, music_pick, music_scan, music_read, music_head, player_open, player_drag, player_min, player_close, debug_out
         ])
         .setup(move |app| {
             let _ = sys::APP.set(app.handle().clone());

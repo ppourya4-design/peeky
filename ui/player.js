@@ -14,11 +14,14 @@ const I = {
   next: S0 + '<path fill="currentColor" d="M5 6.3v11.4a.8.8 0 0 0 1.3.7l8-5.7a.8.8 0 0 0 0-1.4l-8-5.7A.8.8 0 0 0 5 6.3z"/><rect fill="currentColor" x="16.5" y="5.5" width="2.6" height="13" rx="1.2"/>' + S1,
   prev: S0 + '<path fill="currentColor" d="M19 6.3v11.4a.8.8 0 0 1-1.3.7l-8-5.7a.8.8 0 0 1 0-1.4l8-5.7a.8.8 0 0 1 1.3.7z"/><rect fill="currentColor" x="4.9" y="5.5" width="2.6" height="13" rx="1.2"/>' + S1,
   shuffle: S0 + `<path ${ST} d="M4 7h3c4.5 0 5.5 10 10 10h3M4 17h3c1.7 0 2.9-1.7 4-3.6M13.2 8.5C14.2 7.6 15.3 7 17 7h3M17.5 4.5L20 7l-2.5 2.5M17.5 14.5L20 17l-2.5 2.5"/>` + S1,
+  repeat: S0 + `<path ${ST} d="m17 2 4 4-4 4"/><path ${ST} d="M3 11v-1a4 4 0 0 1 4-4h14"/><path ${ST} d="m7 22-4-4 4-4"/><path ${ST} d="M21 13v1a4 4 0 0 1-4 4H3"/>` + S1,
+  repeat1: S0 + `<path ${ST} d="m17 2 4 4-4 4"/><path ${ST} d="M3 11v-1a4 4 0 0 1 4-4h14"/><path ${ST} d="m7 22-4-4 4-4"/><path ${ST} d="M21 13v1a4 4 0 0 1-4 4H3"/><path ${ST} d="M11 10h1v4"/>` + S1,
+  note: S0 + '<path fill="currentColor" d="M10 4v10.2a3.2 3.2 0 1 0 2 3V8h5V4z"/>' + S1,
   volume: S0 + `<path fill="currentColor" d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4z"/><path ${ST} d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/>` + S1,
   muted: S0 + `<path fill="currentColor" d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4z"/><path ${ST} d="M16 9.5l5 5M21 9.5l-5 5"/>` + S1,
 };
 const put = (el, k) => { if (el.dataset.k !== k) { el.dataset.k = k; el.innerHTML = I[k]; } };
-put($('#c-prev'), 'prev'); put($('#c-next'), 'next'); put($('#c-shuffle'), 'shuffle'); put($('#c-play'), 'play'); put($('#c-mute'), 'volume');
+put($('#c-prev'), 'prev'); put($('#c-next'), 'next'); put($('#c-shuffle'), 'shuffle'); put($('#c-play'), 'play'); put($('#c-mute'), 'volume'); put($('#c-repeat'), 'repeat');
 
 
 // ---- the window's colour: soft gradient from the theme / cover colour at the top down to near-black
@@ -48,7 +51,7 @@ function paintTheme(css) {
 paintTheme('');
 
 // ---- state from the main page
-let S = { on: false, playing: false, idx: -1, pos: 0, dur: 0, vol: 50, mute: false, shuffle: false, count: 0, scanning: false, folder: '' };
+let S = { on: false, playing: false, idx: -1, pos: 0, dur: 0, vol: 50, mute: false, shuffle: false, repeat: 0, count: 0, scanning: false, folder: '' };
 let at = performance.now(), tracks = [], folder = '', coverId = -1, query = '', shown = 200, matches = [], lastIdx = -2, scrubbing = false, scrubR = 0, volDrag = false;
 
 const fmt = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
@@ -80,13 +83,15 @@ function applyFilter() {
   shown = 200; lastIdx = -2; renderList();
 }
 function rowFor(i, k) {
-  const [title, artist] = tracks[i];
+  const [title, artist, thumb] = tracks[i];
   const row = document.createElement('div'); row.className = 'row' + (i === S.idx ? ' cur' : ''); row.dataset.i = i; row.style.setProperty('--k', Math.min(k || 0, 12));
   const n = document.createElement('span'); n.className = 'n'; n.textContent = i + 1;
+  const cov = document.createElement('span'); cov.className = 'cov';
+  if (thumb) cov.style.backgroundImage = 'url(' + thumb + ')'; else cov.innerHTML = I.note;
   const t = document.createElement('span'); t.className = 't';
   const b = document.createElement('b'); b.textContent = title; b.dir = 'auto';
   const a = document.createElement('span'); a.textContent = artist; a.dir = 'auto';
-  t.append(b, a); row.append(n, t);
+  t.append(b, a); row.append(n, cov, t);
   row.addEventListener('click', () => { cmd('play', { i }); setList(false); });
   return row;
 }
@@ -143,6 +148,9 @@ function paintState() {
   put($('#c-play'), S.playing ? 'pause' : 'play');
   $('#cover').classList.toggle('playing', !!S.playing);
   $('#c-shuffle').classList.toggle('on', !!S.shuffle);
+  put($('#c-repeat'), S.repeat === 2 ? 'repeat1' : 'repeat');
+  $('#c-repeat').classList.toggle('on', !!S.repeat);
+  $('#c-repeat').title = ['Repeat: off', 'Repeat: all', 'Repeat: one'][S.repeat] || 'Repeat';
   const v = S.mute ? 0 : S.vol;
   put($('#c-mute'), v === 0 ? 'muted' : 'volume');
   if (!volDrag) { $('#vfill').style.width = v + '%'; $('#vknob').style.left = v + '%'; $('#vnum').textContent = v; }
@@ -162,6 +170,7 @@ $('#c-play').addEventListener('click', () => cmd('toggle'));
 $('#c-next').addEventListener('click', () => cmd('next'));
 $('#c-prev').addEventListener('click', () => cmd('prev'));
 $('#c-shuffle').addEventListener('click', () => cmd('shuffle'));
+$('#c-repeat').addEventListener('click', () => cmd('repeat'));
 $('#c-mute').addEventListener('click', () => cmd('mute'));
 
 // seek bar: drag, apply on release

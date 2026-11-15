@@ -49,6 +49,32 @@ pub fn read(root: &Path, file: &Path) -> Option<Vec<u8>> {
     std::fs::read(&file).ok()
 }
 
+/// Only the first bytes of a track — where its tag lives (an ID3v2 header says how long the tag is) —
+/// so the page can fill in titles, artists and covers for the whole list without hauling every file
+/// across whole. Same rules as `read`: audio files inside the chosen folder only.
+pub fn head(root: &Path, file: &Path) -> Option<Vec<u8>> {
+    use std::io::Read;
+    let root = std::fs::canonicalize(root).ok()?;
+    let file = std::fs::canonicalize(file).ok()?;
+    if !file.starts_with(&root) || !is_audio(&file) {
+        return None;
+    }
+    let mut f = std::fs::File::open(&file).ok()?;
+    let mut first = [0u8; 10];
+    let n = f.read(&mut first).ok()?;
+    let mut want: u64 = 32_768;
+    if n == 10 && &first[0..3] == b"ID3" && (first[3] == 3 || first[3] == 4) {
+        let size = ((first[6] as u64 & 127) << 21) | ((first[7] as u64 & 127) << 14) | ((first[8] as u64 & 127) << 7) | (first[9] as u64 & 127);
+        want = (10 + size).min(16_000_000);
+    }
+    let mut buf = Vec::with_capacity(want as usize);
+    buf.extend_from_slice(&first[..n]);
+    if want > n as u64 {
+        f.take(want - n as u64).read_to_end(&mut buf).ok()?;
+    }
+    Some(buf)
+}
+
 /// The standard Windows folder dialog (through PowerShell, which ships with Windows). Blocks until the
 /// dialog is closed, so call it from a worker thread. None when the user cancels.
 pub fn pick_folder() -> Option<String> {

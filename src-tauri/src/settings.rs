@@ -23,6 +23,7 @@ fn defaults() -> Map<String, Value> {
         "noteHotkey": true,         // Ctrl+Alt+N opens the quick note from anywhere
         "musicFolder": "",          // the folder the local player reads
         "musicShuffle": false,
+        "musicRepeat": 0,           // local player repeat: 0 off, 1 all, 2 one
         "vaultLength": 18, "vaultSymbols": true, "lastUser": "",
         "skin": "black",            // the resting pill: plain black or one of the animated skins
         "musicTheme": "sky",        // what plays behind the track: "sky" (colours of the cover) or a skin
@@ -109,6 +110,11 @@ pub fn apply(key: &str, value: &Value) {
         }
         "vaultLength" => {
             if let Some(n) = value.as_f64().map(|n| n.round() as i64).filter(|n| (8..=40).contains(n)) {
+                put(key, n.into());
+            }
+        }
+        "musicRepeat" => {
+            if let Some(n) = value.as_f64().map(|n| n.round() as i64).filter(|n| (0..=2).contains(n)) {
                 put(key, n.into());
             }
         }

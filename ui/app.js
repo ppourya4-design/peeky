@@ -53,6 +53,8 @@ const ICONS = {
   drop: '<path fill="currentColor" d="M12 3.5c3.2 3.9 5.5 6.7 5.5 9.800a5.500 5.500 0 0 1-11 0c0-3.100 2.300-5.900 5.500-9.800z"/>',
   music: `<path ${S} d="M9 17.5V6.5l10-2v11M9 17.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zM19 15.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>`,
   shuffle: `<path ${S} d="M4 7h3c4.500 0 5.500 10 10 10h3M4 17h3c1.700 0 2.900-1.700 4-3.600M13.200 8.500C14.200 7.600 15.300 7 17 7h3M17.500 4.500L20 7l-2.500 2.500M17.500 14.500L20 17l-2.500 2.500"/>`,
+  repeat: `<path ${S} d="m17 2 4 4-4 4"/><path ${S} d="M3 11v-1a4 4 0 0 1 4-4h14"/><path ${S} d="m7 22-4-4 4-4"/><path ${S} d="M21 13v1a4 4 0 0 1-4 4H3"/>`,
+  repeat1: `<path ${S} d="m17 2 4 4-4 4"/><path ${S} d="M3 11v-1a4 4 0 0 1 4-4h14"/><path ${S} d="m7 22-4-4 4-4"/><path ${S} d="M21 13v1a4 4 0 0 1-4 4H3"/><path ${S} d="M11 10h1v4"/>`,
   expand: `<path ${S} d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/>`,
   folder: `<path ${S} d="M4 7.500a2 2 0 0 1 2-2h3.500l2 2.500H18a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>`,
   gear: `<circle ${S} cx="12" cy="12" r="2.8"/><path ${S} d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M18 6l-1.6 1.6M7.6 16.4L6 18"/>`,
@@ -96,7 +98,7 @@ const st = {
 // the local music player (its code is further down); declared here because render() may run before that point
 const local = {
   audio: new Audio(), folder: undefined, list: [], idx: -1, on: false, loading: false, scanning: false,
-  url: '', pausedAt: 0, seq: 0, fails: 0, shown: 150, meta: null, listId: 0, cover: null, coverId: 0,
+  url: '', pausedAt: 0, seq: 0, fails: 0, shown: 150, meta: null, listId: 0, cover: null, coverId: 0, scanGen: 0,
 };
 // the window takes the mouse only while the cursor is on the island (or a text field is open)
 let mouseSent = null;
@@ -824,6 +826,7 @@ const MIME = { mp3: 'audio/mpeg', flac: 'audio/flac', wav: 'audio/wav', ogg: 'au
 // while this player is playing (or was paused a minute ago) the system's own session is not shown
 const localHolds = () => local.on && (local.loading || !local.audio.paused || Date.now() - local.pausedAt < 60000);
 const shuffleOn = () => !!(st.settings && st.settings.musicShuffle);
+const repeatMode = () => { const n = Number((st.settings || {}).musicRepeat); return n === 1 || n === 2 ? n : 0; };   // 0 off, 1 all, 2 one
 
 function nameOf(path) {            // "D:\Music\Artist\01 - Song.mp3" → what the list and the pill show before the tags are read
   const parts = path.split(/[\\/]/), file = parts.pop() || '', dir = parts.pop() || '';
@@ -879,6 +882,59 @@ function readId3(buf) {
     }
   } catch { /* a damaged tag is not worth stopping the music for */ }
   return out;
+}
+
+// --- the list learns the real names: a quiet background pass reads each mp3's tag (only its first
+// bytes cross over, via musicHead) and fills in title, artist and a small cover thumb per row.
+// Names are cached across runs; thumbs live for the session.
+const tagCache = (() => { try { return JSON.parse(localStorage.getItem('peeky.tags.v1') || '{}'); } catch { return {}; } })();
+let tagSaveAt = 0;
+function saveTagCache() {
+  const now = Date.now(); if (now - tagSaveAt < 2500) return; tagSaveAt = now;
+  try { localStorage.setItem('peeky.tags.v1', JSON.stringify(tagCache)); } catch { /* full or blocked: this session still knows */ }
+}
+const imgMime = (b64) => b64.startsWith('/9j/') ? 'image/jpeg' : b64.startsWith('iVBOR') ? 'image/png' : b64.startsWith('R0lGOD') ? 'image/gif' : b64.startsWith('UklGR') ? 'image/webp' : 'image/jpeg';
+function thumbOf(b64) {            // a 56px square jpeg data url from a full-size cover, small enough to ride along with the list
+  return new Promise((res) => {
+    if (!b64) return res('');
+    const img = new Image();
+    img.onload = () => { try { const c = document.createElement('canvas'); c.width = c.height = 56; const g = c.getContext('2d'); const s = Math.min(img.width, img.height); g.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 56, 56); res(c.toDataURL('image/jpeg', 0.72)); } catch { res(''); } };
+    img.onerror = () => res('');
+    img.src = 'data:' + imgMime(b64) + ';base64,' + b64;
+  });
+}
+async function indexOne(i, gen) {
+  const tr = local.list[i];
+  if (!tr || tr.tagged) return;
+  tr.tagged = true;
+  if (!/\.mp3$/i.test(tr.path)) return;                       // tags are read for mp3 (the same reach as playback)
+  let buf = null;
+  try { buf = await window.qazi.musicHead(tr.path); } catch { buf = null; }
+  if (!buf || gen !== local.scanGen) return;
+  if (!(buf instanceof ArrayBuffer)) buf = new Uint8Array(buf).buffer;
+  const tags = readId3(buf);
+  let changed = false;
+  if (tags.title && tags.title !== tr.title) { tr.title = tags.title; changed = true; }
+  if (tags.artist && tags.artist !== tr.artist) { tr.artist = tags.artist; changed = true; }
+  if (tags.title || tags.artist) { tagCache[tr.path] = [tr.title, tr.artist]; saveTagCache(); }
+  if (tags.cover) { tr.thumb = await thumbOf(tags.cover); if (tr.thumb) changed = true; }
+  if (!changed || gen !== local.scanGen) return;
+  if (local.idx === i && local.meta) { local.meta.title = tr.title; local.meta.artist = tr.artist; pushLocal(); }
+  local.listId++;                                              // the player window re-reads its list
+  clearTimeout(local.tagRt);
+  local.tagRt = setTimeout(() => { if (st.stackOpen && st.stackKind === 'music') renderStack(); }, 900);
+}
+async function indexTags(gen) {
+  const queue = local.list.map((tr, i) => i).filter((i) => !local.list[i].tagged);
+  let active = 0, at = 0;
+  await new Promise((done) => {
+    const step = () => {
+      if (gen !== local.scanGen) return done();
+      while (active < 2 && at < queue.length) { const i = queue[at++]; active++; indexOne(i, gen).then(() => { active--; step(); }); }
+      if (at >= queue.length && !active) done();
+    };
+    step();
+  });
 }
 
 // --- the pill follows the player
@@ -937,6 +993,15 @@ async function playLocal(i) {
   local.fails = 0;
   setSession(); pushLocal();
   if (tags.cover) { setArt(tags.cover); local.cover = tags.cover; local.coverId++; }
+  const trk = local.list[i];                       // the list row learns the real names (and a cover thumb) too
+  if (trk) {
+    trk.tagged = true;
+    if (tags.title) trk.title = tags.title;
+    if (tags.artist) trk.artist = tags.artist;
+    if (tags.title || tags.artist) { tagCache[trk.path] = [trk.title, trk.artist]; saveTagCache(); }
+    if (tags.cover) trk.thumb = await thumbOf(tags.cover);
+    if (tags.title || tags.artist || tags.cover) local.listId++;
+  }
 }
 function failLocal(tr) {           // a track that cannot be opened: say so, move on, but never spin forever
   flash("Can't play " + nameOf(tr.path).title);
@@ -959,21 +1024,33 @@ function toggleLocal() {
   pushLocal();
 }
 function seekLocal(ms) { local.audio.currentTime = Math.max(0, ms / 1000); }
-local.audio.addEventListener('ended', () => nextLocal());
+local.audio.addEventListener('ended', () => {
+  const n = local.list.length;
+  if (!n) return;
+  if (repeatMode() === 2) { local.audio.currentTime = 0; local.audio.play().catch(() => {}); pushLocal(); return; }   // repeat one: same track again
+  if (!shuffleOn() && repeatMode() === 0 && local.idx >= n - 1) {          // repeat off, last track: stop here
+    local.on = false; local.loading = false; onMedia({ t: 'media', active: false }); return;
+  }
+  nextLocal();
+});
 local.audio.addEventListener('pause', () => { local.pausedAt = Date.now(); pushLocal(); });
 local.audio.addEventListener('play', () => { pushLocal(); });
 local.audio.addEventListener('error', () => { if (local.on && !local.loading && local.audio.src) failLocal(local.list[local.idx] || { path: '' }); });
 
 async function scanLocal() {
   local.audio.pause(); local.seq++; local.on = false; local.idx = -1; local.loading = false;
-  local.list = []; local.shown = 150; local.scanning = !!local.folder; local.listId++;
+  local.list = []; local.shown = 150; local.scanning = !!local.folder; local.listId++; local.scanGen++;
   if (st.stackOpen && st.stackKind === 'music') renderStack();
   const folder = local.folder;
   const list = folder ? await window.qazi.musicScan() : [];
   if (folder !== local.folder) return;                                  // the folder was changed again while reading
-  local.list = (Array.isArray(list) ? list : []).map((path) => ({ path, ...nameOf(path) }));
+  local.list = (Array.isArray(list) ? list : []).map((path) => {
+    const named = nameOf(path), hit = tagCache[path];                   // last run's tags, while this run reads them again
+    return { path, title: (hit && hit[0]) || named.title, artist: (hit && hit[1]) || named.artist };
+  });
   local.scanning = false; local.listId++;
   if (st.stackOpen && st.stackKind === 'music') renderStack();
+  if (local.list.length) indexTags(local.scanGen);
 }
 
 // --- the list under the pill
@@ -1004,6 +1081,9 @@ function renderMusic() {
     const sh = document.createElement('button'); sh.className = 'ib small' + (shuffleOn() ? ' active' : ''); sh.innerHTML = svg('shuffle'); sh.title = shuffleOn() ? 'Shuffle is on' : 'Shuffle is off';
     sh.addEventListener('click', () => window.qazi.setSetting('musicShuffle', !shuffleOn()));
     head.appendChild(sh);
+    const rp = document.createElement('button'); rp.className = 'ib small' + (repeatMode() ? ' active' : ''); rp.innerHTML = svg(repeatMode() === 2 ? 'repeat1' : 'repeat'); rp.title = ['Repeat is off', 'Repeat all', 'Repeat one'][repeatMode()];
+    rp.addEventListener('click', () => window.qazi.setSetting('musicRepeat', (repeatMode() + 1) % 3));
+    head.appendChild(rp);
   }
   const big = document.createElement('button'); big.className = 'ib small'; big.innerHTML = svg('expand'); big.title = 'Open the player window';
   big.addEventListener('click', () => { window.qazi.playerOpen(); });
@@ -1032,13 +1112,13 @@ function sendPlayer(force) {
   const out = (m) => window.qazi.playerSend('player-state', m), a = local.audio, m = local.meta || {};
   if (force || sentList !== local.listId) {
     sentList = local.listId;
-    out({ t: 'list', folder: local.folder || '', scanning: local.scanning, tracks: local.list.map((tr) => [tr.title, tr.artist]) });
+    out({ t: 'list', folder: local.folder || '', scanning: local.scanning, tracks: local.list.map((tr) => [tr.title, tr.artist, tr.thumb || '']) });
   }
   if (force || sentCover !== local.coverId) { sentCover = local.coverId; out({ t: 'cover', id: local.coverId, data: local.cover }); }
   out({
     t: 'state', on: local.on, loading: local.loading, playing: local.on && (local.loading || !a.paused), idx: local.on ? local.idx : -1,
     title: m.title || '', artist: m.artist || '', pos: Math.round(a.currentTime * 1000), dur: isFinite(a.duration) ? Math.round(a.duration * 1000) : 0,
-    shuffle: shuffleOn(), count: local.list.length, vol: st.vol, mute: st.mute, scanning: local.scanning, folder: local.folder || '',
+    shuffle: shuffleOn(), repeat: repeatMode(), count: local.list.length, vol: st.vol, mute: st.mute, scanning: local.scanning, folder: local.folder || '',
     // the window wears the pill's theme: a skin gives its own colour, plain black takes the cover's colour
     top: THEMES[st.skin] ? THEMES[st.skin].pal[1] : local.on ? palette[1] : '',
   });
@@ -1058,6 +1138,7 @@ window.qazi.onPlayerCmd((m) => {
     case 'prev': prevLocal(); break;
     case 'seek': if (local.on) seekLocal(Number(m.ms) || 0); break;
     case 'shuffle': window.qazi.setSetting('musicShuffle', !shuffleOn()); break;
+    case 'repeat': window.qazi.setSetting('musicRepeat', (repeatMode() + 1) % 3); break;
     case 'pick': window.qazi.musicPick(); break;
     case 'vol': st.vol = clamp(Math.round(Number(m.v) || 0), 0, 100); st.mute = false; st.volLocalAt = Date.now(); paintVol(); window.qazi.setVolume(st.vol / 100); break;
     case 'mute': window.qazi.toggleMute(); break;
