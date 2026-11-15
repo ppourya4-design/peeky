@@ -6,8 +6,11 @@
 <link rel="stylesheet" href="player.css">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute"><filter id="goo-f"><feGaussianBlur in="SourceGraphic" stdDeviation="3.2"/><feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9"/></filter></svg>
+<canvas id="goo"></canvas>
 <div class="card" id="card">
   <div class="bg" id="bg"></div>
+  <canvas id="look" class="look"></canvas>
 
   <header id="drag">
     <span class="brand">Peeky</span>
@@ -22,14 +25,18 @@
       <div class="title" id="title" dir="auto">Nothing playing</div>
       <div class="artist" id="artist" dir="auto"></div>
     </div>
-    <div class="seek" id="seek"><div class="track"><i id="seek-fill"></i><b id="seek-knob"></b></div></div>
+    <button class="lpill" id="lpill" hidden></button>
+    <div class="lyrics" id="lyrics"><div class="lines" id="lines"></div><div class="lmsg" id="lmsg"></div></div>
+    <div class="seek" id="seek"><div class="track"><i id="seek-fill"></i><b id="seek-knob"></b></div><div class="toast" id="toast"></div></div>
     <div class="times"><span id="t-now">0:00</span><span id="t-all">0:00</span></div>
     <div class="ctl">
+      <button class="ib sk" id="c-back" title="Back 10 seconds"></button>
       <button class="ib" id="c-shuffle" title="Shuffle"></button>
       <button class="ib" id="c-prev" title="Previous"></button>
       <button class="ib big" id="c-play" title="Play / Pause"></button>
       <button class="ib" id="c-next" title="Next"></button>
       <button class="ib" id="c-repeat" title="Repeat"></button>
+      <button class="ib sk" id="c-fwd" title="Forward 10 seconds"></button>
     </div>
     <div class="vol"><div class="vtrack" id="vtrack"><i id="vfill"></i><b id="vknob"></b></div><span id="vnum">50</span></div>
   </section>
@@ -43,8 +50,19 @@
     <div class="list" id="list"></div>
   </section>
 
-  <button class="listbtn" id="listbtn" aria-expanded="false" title="Show the music list"><span>List</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <div class="dock" id="dock">
+    <button class="lyrbtn" id="lyrbtn" aria-pressed="false" title="Show the lyrics"><span class="lic" id="lyric"></span><span>Lyrics</span><i class="ldot" id="ldot"></i></button>
+    <button class="listbtn" id="listbtn" aria-expanded="false" title="Show the music list"><span>List</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+  <div class="timing" id="timing" hidden>
+    <div class="th"><b>Lyrics timing</b><span>this song only</span></div>
+    <div class="tr"><button id="t-minus" title="Earlier by 0.1s">−</button><output id="t-val">0.0s</output><button id="t-plus" title="Later by 0.1s">+</button></div>
+    <div class="tf"><span>+ later · − earlier</span><button id="t-reset">Reset</button></div>
+  </div>
+  <input type="file" id="lrcfile" accept=".lrc,.txt,text/plain" hidden>
 </div>
+<script src="lyrics.js"></script>
+<script src="player-look.js"></script>
 <script src="player.js"></script>
 </body>
 </html>

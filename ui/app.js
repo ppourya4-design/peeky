@@ -153,7 +153,7 @@ function render() {
   if (st.stackOpen && away && now - st.leftAt > 650) setStack(false);
   if (away && !st.stackOpen && now - st.leftAt > 380 && !(st.manual === 'gen' && now < st.gen.until)) st.manual = null;
   if (st.menuMode && away && !st.stackOpen) { st.menuMode = false; $('#t-track').classList.add('hidden'); }   // the menu detour ends when the pill closes: the next open shows the track again
-  const viz = st.media.playing && musicOn() && st.visuals;
+  const viz = st.media.playing && (musicOn() || (local.on && st.playerOpen)) && st.visuals;      // the player window needs the levels too, even while the pill leaves the music to it
   if (viz !== st.vizOn) { st.vizOn = viz; window.qazi.setViz(viz); }
   updateTuck();
   if (!st.tucked && st.cx !== undefined) hoverNow();      // the pill may have grown or shrunk under a resting cursor
@@ -713,6 +713,7 @@ function setArt(b64) {
 const VIDEO_APPS = /vlc|mpv|mpc-hc|mpc-be|potplayer|kmplayer|smplayer|gomplayer|zunevideo|netflix|primevideo|disney|plex|kodi|stremio|filimo|namava|aparat/i;
 function onMedia(m) {
   const was = st.media;
+  paintVol();
   if (!m.active) {
     st.media = { active: false, playing: false, title: '', artist: '', pos: 0, dur: 0, at: 0, key: '', video: false };
     setArt(null);
@@ -766,25 +767,42 @@ $('#b-close').addEventListener('click', dismissLocal);
 setArt(null);
 
 // ------------------------------------------------------------ volume HUD (scroll on the pill, or any system volume change)
+// While Peeky's own player is the one playing, every volume control (pill, player window) changes only Peeky's own volume
+// (the audio element), never the Windows master volume. For any other player there is nothing else to turn, so those still use the system volume.
+local.vol = (() => { try { const v = parseInt(localStorage.getItem('peeky.vol'), 10); return v >= 0 && v <= 100 ? v : 100; } catch { return 100; } })();
+local.mute = false;
+const volOwn = () => local.on;
+const getVol = () => (volOwn() ? local.vol : st.vol), getMute = () => (volOwn() ? local.mute : st.mute);
+function applyOwnVol() { local.audio.volume = clamp(local.vol / 100, 0, 1); local.audio.muted = local.mute; }
+applyOwnVol();
+function setVolLevel(v, delay) {
+  v = clamp(Math.round(v), 0, 100);
+  if (volOwn()) { local.vol = v; local.mute = false; applyOwnVol(); try { localStorage.setItem('peeky.vol', String(v)); } catch { /* not remembered */ } return; }
+  st.vol = v; st.mute = false;
+  if (!volSendT) volSendT = setTimeout(() => { volSendT = 0; window.qazi.setVolume(st.vol / 100); }, delay);
+}
+function toggleMuteAny() {
+  if (volOwn()) { local.mute = !local.mute; applyOwnVol(); paintVol(); } else window.qazi.toggleMute();
+}
 function paintVol() {
-  $('#v-fill').style.width = (st.mute ? 0 : st.vol) + '%';
-  $('#v-num').textContent = st.mute ? '0' : st.vol;
-  const ic = st.mute || st.vol === 0 ? 'muted' : 'volume';
+  const vol = getVol(), mute = getMute();
+  $('#v-fill').style.width = (mute ? 0 : vol) + '%';
+  $('#v-num').textContent = mute ? '0' : vol;
+  const ic = mute || vol === 0 ? 'muted' : 'volume';
   setIcon($('#v-icon'), ic); setIcon($('#b-vol'), ic);
-  $('#m-vfill').style.width = (st.mute ? 0 : st.vol) + '%'; $('#m-vnum').textContent = st.mute ? '0' : st.vol;
+  $('#m-vfill').style.width = (mute ? 0 : vol) + '%'; $('#m-vnum').textContent = mute ? '0' : vol;
 }
 views.vol.title = 'Drag to change the volume · click the speaker to mute';
-views.vol.addEventListener('click', (e) => { if (e.target.closest('.vbar')) return; st.volUntil = Date.now() + 1500; window.qazi.toggleMute(); });
+views.vol.addEventListener('click', (e) => { if (e.target.closest('.vbar')) return; st.volUntil = Date.now() + 1500; toggleMuteAny(); });
 views.vol.addEventListener('pointerenter', () => { st.volHold = true; });
 views.vol.addEventListener('pointerleave', () => { st.volHold = false; st.volUntil = Date.now() + 900; });
 // the bar itself is a slider
 const vbar = $('#v-bar');
 function volFrom(e) {
   const r = vbar.getBoundingClientRect();
-  st.vol = Math.round(clamp((e.clientX - r.left) / r.width, 0, 1) * 100); st.mute = false;
+  setVolLevel(clamp((e.clientX - r.left) / r.width, 0, 1) * 100, 40);
   st.volLocalAt = Date.now(); st.volUntil = Date.now() + 2500;
   paintVol(); render();
-  if (!volSendT) volSendT = setTimeout(() => { volSendT = 0; window.qazi.setVolume(st.vol / 100); }, 40);
 }
 let volDrag = false;
 vbar.addEventListener('pointerdown', (e) => { e.preventDefault(); volDrag = true; try { vbar.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ } vbar.classList.add('drag'); volFrom(e); });
@@ -804,16 +822,15 @@ function volMode(on) {
 }
 function mvolFrom(e) {
   const r = mvbar.getBoundingClientRect();
-  st.vol = Math.round(clamp((e.clientX - r.left) / r.width, 0, 1) * 100); st.mute = false;
+  setVolLevel(clamp((e.clientX - r.left) / r.width, 0, 1) * 100, 40);
   st.volLocalAt = Date.now();
   paintVol();
-  if (!volSendT) volSendT = setTimeout(() => { volSendT = 0; window.qazi.setVolume(st.vol / 100); }, 40);
 }
 mvbar.addEventListener('pointerdown', (e) => { e.preventDefault(); mvolDrag = true; try { mvbar.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ } mvbar.classList.add('drag'); mvolFrom(e); });
 mvbar.addEventListener('pointermove', (e) => { if (mvolDrag) mvolFrom(e); });
 const mvolEnd = () => { mvolDrag = false; mvbar.classList.remove('drag'); };
 mvbar.addEventListener('pointerup', mvolEnd); mvbar.addEventListener('pointercancel', mvolEnd);
-$('#m-vnum').addEventListener('click', () => { window.qazi.toggleMute(); });
+$('#m-vnum').addEventListener('click', () => { toggleMuteAny(); });
 $('#b-vol').addEventListener('click', () => volMode(!views.media.classList.contains('volmode')));
 // The pill is the source of truth while scrolling: steps are applied locally at once, sent to Windows at most
 // ~16 times a second, and Windows' own (late) reports are ignored until the wheel has rested.
@@ -824,10 +841,9 @@ island.addEventListener('wheel', (e) => {
   const steps = Math.trunc(wheelAcc / 50);          // one mouse notch = 2%, touchpads glide in 1% steps
   if (!steps) return;
   wheelAcc -= steps * 50;
-  st.vol = clamp(st.vol - steps, 0, 100); st.mute = false;
+  setVolLevel(getVol() - steps, 60);
   st.volLocalAt = Date.now(); st.volUntil = Date.now() + 1300;
   paintVol(); render();
-  if (!volSendT) volSendT = setTimeout(() => { volSendT = 0; window.qazi.setVolume(st.vol / 100); }, 60);
 }, { passive: false });
 
 // ------------------------------------------------------------ local music
@@ -1219,9 +1235,14 @@ function sendPlayer(force) {
   out({
     t: 'state', on: local.on, loading: local.loading, playing: local.on && (local.loading || !a.paused), idx: local.on ? local.idx : -1,
     title: m.title || '', artist: m.artist || '', pos: Math.round(a.currentTime * 1000), dur: isFinite(a.duration) ? Math.round(a.duration * 1000) : 0,
-    shuffle: shuffleOn(), repeat: repeatMode(), count: local.list.length, vol: st.vol, mute: st.mute, scanning: local.scanning, folder: local.folder || '',
-    // the window wears the pill's theme: a skin gives its own colour, plain black takes the cover's colour
-    top: THEMES[st.skin] ? THEMES[st.skin].pal[1] : local.on ? palette[1] : '',
+    shuffle: shuffleOn(), repeat: repeatMode(), count: local.list.length, vol: getVol(), mute: getMute(), scanning: local.scanning, folder: local.folder || '',
+    // the window wears the pill's look: a skin brings its own animation, plain black takes the cover's colours (any source, not only local files)
+    look: st.playerTheme !== false && THEMES[st.skin] ? st.skin : 'black',
+    pal: st.playerTheme !== false && THEMES[st.skin] ? THEMES[st.skin].pal : palette,
+    active: !!(local.on || st.media.active),
+    live: !!(st.media.playing || (local.on && !a.paused)),
+    react: st.react,
+    top: st.playerTheme !== false && THEMES[st.skin] ? THEMES[st.skin].pal[1] : (local.on || st.media.active) ? palette[1] : '',
   });
 }
 setInterval(() => { if (st.playerOpen) sendPlayer(); }, 300);
@@ -1241,8 +1262,8 @@ window.qazi.onPlayerCmd((m) => {
     case 'shuffle': window.qazi.setSetting('musicShuffle', !shuffleOn()); break;
     case 'repeat': window.qazi.setSetting('musicRepeat', (repeatMode() + 1) % 3); break;
     case 'pick': window.qazi.musicPick(); break;
-    case 'vol': st.vol = clamp(Math.round(Number(m.v) || 0), 0, 100); st.mute = false; st.volLocalAt = Date.now(); paintVol(); window.qazi.setVolume(st.vol / 100); break;
-    case 'mute': window.qazi.toggleMute(); break;
+    case 'vol': setVolLevel(Number(m.v) || 0, 0); st.volLocalAt = Date.now(); paintVol(); if (!volOwn()) window.qazi.setVolume(st.vol / 100); break;
+    case 'mute': toggleMuteAny(); break;
     default: return;
   }
   setTimeout(() => sendPlayer(), 80);
@@ -1282,7 +1303,7 @@ window.qazi.onHelper((m) => {
     const v = Math.round(m.level * 100);
     const changed = v !== st.vol || m.mute !== st.mute;
     st.vol = v; st.mute = !!m.mute; paintVol();
-    if (st.volSeen && changed && !(st.hideVideo && st.full)) { st.volUntil = Date.now() + 1300; render(); }
+    if (st.volSeen && changed && !volOwn() && !(st.hideVideo && st.full)) { st.volUntil = Date.now() + 1300; render(); }
     st.volSeen = true;
   }
 });
@@ -2209,6 +2230,7 @@ const SETTINGS_UI = [
   ['swatch', 'skin', 'Theme', ['black', 'nebula', 'crystal', 'ember', 'reactor', 'venom']],        // cloud, water, lava and ice are parked until they are finished
   ['toggle', 'musicReact', 'Theme reacts to music'],
   ['toggle', 'visuals', 'Night sky with music (black theme)'],
+  ['toggle', 'playerTheme', 'Player window wears the theme'],
   ['step', 'notifSeconds', 'Notification stays for', 2, 10, 's'],
   ['button', 'dnd', "Hide Windows' own banners", 'Open'],
   ['toggle', 'copyPreview', 'Show what was copied'],
@@ -2356,6 +2378,7 @@ const applySettings = (s) => {
   st.deviceAlerts = s.deviceAlerts !== false;
   st.shelfOn = s.shelf !== false;
   st.visuals = s.visuals !== false;
+  st.playerTheme = s.playerTheme !== false;
   st.skin = ['nebula', 'crystal', 'ember', 'reactor', 'venom'].includes(s.skin) ? s.skin : 'black';
   st.musicTheme = THEMES[s.musicTheme] ? s.musicTheme : 'sky';
   st.smartCopy = s.smartCopy !== false;

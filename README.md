@@ -27,6 +27,7 @@ catches your notifications, remembers what you copied, holds your files, and bli
 - **Themes that move.** Liquid skins that drift at rest and flood with colour on the beat (or stay calm, if you switch that off). In **Venom** the pill itself turns to black goo.
 - **Local music.** Pick a folder once; the music button in the menu lists every track, a click plays it right on the pill (cover and title from the file's tags, shuffle, next/previous, scrubber). A small speaker button on the player opens a volume slider in place, inside the same pill.
 - **Player window.** One click opens a small separate player: big cover, seek bar, volume, search and the full track list. The pill then leaves the music to it, and takes it back when the window is closed.
+- **Lyrics.** The player window has a Lyrics button: synced lyrics from [LRCLIB](https://lrclib.net) glide with the song, tap a line to jump there, ±10 s buttons, a per-song timing nudge, or load your own `.lrc` file. Only the title, artist and length of the playing song are sent, and only after you have opened Lyrics once.
 - **Notifications in one line.** Click to open that chat. While you are using the pill they wait beside it instead of taking it over.
 - **One hover away.** Screenshot, text grab, clipboard history, quick note, passwords, timer, notifications, settings.
 - **Smart copy.** A copied link can be opened, a sum gets its answer, a date its twin in the other calendar (Gregorian ⇄ Shamsi), a colour its swatch.
