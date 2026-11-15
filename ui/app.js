@@ -152,6 +152,7 @@ function render() {
   const now = Date.now(), away = !st.hover && !st.dragOut && !st.typing && now > st.holdUntil;
   if (st.stackOpen && away && now - st.leftAt > 650) setStack(false);
   if (away && !st.stackOpen && now - st.leftAt > 380 && !(st.manual === 'gen' && now < st.gen.until)) st.manual = null;
+  if (st.menuMode && away && !st.stackOpen) { st.menuMode = false; $('#t-track').classList.add('hidden'); }   // the menu detour ends when the pill closes: the next open shows the track again
   const viz = st.media.playing && musicOn() && st.visuals;
   if (viz !== st.vizOn) { st.vizOn = viz; window.qazi.setViz(viz); }
   updateTuck();
@@ -730,17 +731,16 @@ function onMedia(m) {
   setIcon($('#b-play'), icon); setIcon($('#t-play'), icon);
   $('#t-play').classList.toggle('hidden', !st.media.active);
   $('#t-track').classList.toggle('hidden', !(st.menuMode && musicOn()));
+  $('#b-close').classList.toggle('hidden', !(m.active && m.app === 'peeky'));   // the x belongs to the built-in player only
   render();
 }
 function setMenuMode(on) {
   st.menuMode = on;
-  try { localStorage.setItem('qazi.menuMode', on ? '1' : ''); } catch { /* storage unavailable */ }
   $('#t-track').classList.toggle('hidden', !(on && musicOn()));
   st.manual = null;
   if (on) st.enteredAt = 0;      // the cursor is already on the pill: show the menu at once
   render();
 }
-try { st.menuMode = localStorage.getItem('qazi.menuMode') === '1'; } catch { /* storage unavailable */ }
 const optimisticToggle = () => {      // instant feedback; the helper confirms within ~0.5s
   if (local.on) { toggleLocal(); return; }
   window.qazi.media('toggle');
@@ -752,6 +752,17 @@ $('#b-next').addEventListener('click', () => (local.on ? nextLocal() : window.qa
 $('#b-prev').addEventListener('click', () => (local.on ? prevLocal() : window.qazi.media('prev')));
 $('#b-more').addEventListener('click', () => setMenuMode(true));
 $('#t-track').addEventListener('click', () => { setStack(false); setMenuMode(false); });
+function dismissLocal() {          // the little x on the player: stop, unload, and forget the track entirely
+  if (!local.on) return;
+  local.seq++; local.on = false; local.loading = false; local.idx = -1;
+  local.audio.pause();
+  if (local.url) { URL.revokeObjectURL(local.url); local.url = ''; }
+  try { local.audio.removeAttribute('src'); local.audio.load(); } catch { /* already empty */ }
+  setArt(null); local.cover = null; local.coverId++;
+  onMedia({ t: 'media', active: false });
+  render();
+}
+$('#b-close').addEventListener('click', dismissLocal);
 setArt(null);
 
 // ------------------------------------------------------------ volume HUD (scroll on the pill, or any system volume change)
