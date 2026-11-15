@@ -21,7 +21,7 @@ const I = {
   muted: S0 + `<path fill="currentColor" d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4z"/><path ${ST} d="M16 9.5l5 5M21 9.5l-5 5"/>` + S1,
 };
 const put = (el, k) => { if (el.dataset.k !== k) { el.dataset.k = k; el.innerHTML = I[k]; } };
-put($('#c-prev'), 'prev'); put($('#c-next'), 'next'); put($('#c-shuffle'), 'shuffle'); put($('#c-play'), 'play'); put($('#c-mute'), 'volume'); put($('#c-repeat'), 'repeat');
+put($('#c-prev'), 'prev'); put($('#c-next'), 'next'); put($('#c-shuffle'), 'shuffle'); put($('#c-play'), 'play'); put($('#c-repeat'), 'repeat');
 
 
 // ---- the window's colour: soft gradient from the theme / cover colour at the top down to near-black
@@ -152,7 +152,6 @@ function paintState() {
   $('#c-repeat').classList.toggle('on', !!S.repeat);
   $('#c-repeat').title = ['Repeat: off', 'Repeat: all', 'Repeat: one'][S.repeat] || 'Repeat';
   const v = S.mute ? 0 : S.vol;
-  put($('#c-mute'), v === 0 ? 'muted' : 'volume');
   if (!volDrag) { $('#vfill').style.width = v + '%'; $('#vknob').style.left = v + '%'; $('#vnum').textContent = v; }
   $('#seek').classList.toggle('off', !(S.on && S.dur > 0));
   markNow();
@@ -171,7 +170,6 @@ $('#c-next').addEventListener('click', () => cmd('next'));
 $('#c-prev').addEventListener('click', () => cmd('prev'));
 $('#c-shuffle').addEventListener('click', () => cmd('shuffle'));
 $('#c-repeat').addEventListener('click', () => cmd('repeat'));
-$('#c-mute').addEventListener('click', () => cmd('mute'));
 
 // seek bar: drag, apply on release
 const seekEl = $('#seek'), ratio = (el, e) => { const r = el.getBoundingClientRect(); return clamp((e.clientX - r.left) / r.width, 0, 1); };

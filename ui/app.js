@@ -884,7 +884,96 @@ function readId3(buf) {
   return out;
 }
 
-// --- the list learns the real names: a quiet background pass reads each mp3's tag (only its first
+// --- tags: MP4 (m4a) → title, artist, cover from the ilst atoms. Works on a whole file, or on a
+// buffer that starts at the moov atom (which is what musicHead hands over for m4a).
+function mp4Child(u, d, at, end, type) {
+  let p = at;
+  while (p + 8 <= end) {
+    let size = d.getUint32(p), hdr = 8;
+    const t = String.fromCharCode(u[p + 4], u[p + 5], u[p + 6], u[p + 7]);
+    if (size === 1) { size = Number(d.getBigUint64(p + 8)); hdr = 16; }
+    else if (size === 0) size = end - p;
+    if (size < hdr) return null;
+    if (t === type) return [p + hdr, Math.min(p + size, end)];
+    p += size;
+  }
+  return null;
+}
+function readMp4(buf) {
+  const out = {};
+  try {
+    const u = new Uint8Array(buf), d = new DataView(buf), dec = new TextDecoder('utf-8');
+    const moov = mp4Child(u, d, 0, u.length, 'moov'); if (!moov) return out;
+    let meta = null;
+    const udta = mp4Child(u, d, moov[0], moov[1], 'udta');
+    if (udta) meta = mp4Child(u, d, udta[0], udta[1], 'meta');
+    if (!meta) meta = mp4Child(u, d, moov[0], moov[1], 'meta');
+    if (!meta) return out;
+    const ilst = mp4Child(u, d, meta[0] + 4, meta[1], 'ilst'); if (!ilst) return out;   // meta's body opens with 4 flag bytes
+    let p = ilst[0];
+    while (p + 8 <= ilst[1]) {
+      let size = d.getUint32(p), hdr = 8;
+      const key = String.fromCharCode(u[p + 4], u[p + 5], u[p + 6], u[p + 7]);
+      if (size === 1) { size = Number(d.getBigUint64(p + 8)); hdr = 16; }
+      else if (size === 0) size = ilst[1] - p;
+      if (size < hdr) break;
+      const data = mp4Child(u, d, p + hdr, Math.min(p + size, ilst[1]), 'data');
+      if (data && data[0] + 8 <= data[1]) {
+        const kind = d.getUint32(data[0]), payload = u.subarray(data[0] + 8, data[1]);
+        if (key === '\u00A9nam' && kind === 1) out.title = dec.decode(payload).trim();
+        else if (key === '\u00A9ART' && kind === 1) out.artist = dec.decode(payload).trim();
+        else if (key === 'aART' && kind === 1 && !out.artist) out.artist = dec.decode(payload).trim();
+        else if (key === 'covr' && !out.cover && payload.length > 100 && payload.length < 6e6) out.cover = bytesToB64(payload);
+      }
+      p += size;
+    }
+  } catch { /* a damaged tag is not worth stopping the music for */ }
+  return out;
+}
+
+// --- tags: FLAC → title, artist, cover from the Vorbis comment and picture blocks at the file's start.
+function readFlac(buf) {
+  const out = {};
+  try {
+    const u = new Uint8Array(buf), d = new DataView(buf), dec = new TextDecoder('utf-8');
+    if (u.length < 8 || u[0] !== 0x66 || u[1] !== 0x4c || u[2] !== 0x61 || u[3] !== 0x43) return out;   // "fLaC"
+    let p = 4, albumArtist = '';
+    while (p + 4 <= u.length) {
+      const last = u[p] & 0x80, type = u[p] & 0x7f, len = (u[p + 1] << 16) | (u[p + 2] << 8) | u[p + 3], body = p + 4;
+      if (body >= u.length) break;
+      if (type === 4) {                                    // Vorbis comment (little-endian lengths)
+        let q = body;
+        const le = () => { const v = d.getUint32(q, true); q += 4; return v; };
+        q += 4 + le();                                     // vendor string
+        const count = le();
+        for (let i = 0; i < count && q + 4 <= u.length; i++) {
+          const l = le(); if (q + l > u.length) break;
+          const s = dec.decode(u.subarray(q, q + l)); q += l;
+          const eq = s.indexOf('='); if (eq < 1) continue;
+          const k = s.slice(0, eq).toUpperCase(), v = s.slice(eq + 1).trim();
+          if (k === 'TITLE' && !out.title) out.title = v;
+          else if (k === 'ARTIST' && !out.artist) out.artist = v;
+          else if (k === 'ALBUMARTIST' && !albumArtist) albumArtist = v;
+        }
+      } else if (type === 6 && !out.cover) {               // picture block (big-endian lengths)
+        let q = body;
+        const be = () => { const v = d.getUint32(q); q += 4; return v; };
+        be(); const ml = be(); q += ml; const dl = be(); q += dl; q += 16; const n = be();
+        const img = u.subarray(q, Math.min(q + n, u.length));
+        if (img.length > 100) out.cover = bytesToB64(img);
+      }
+      if (last || body + len <= p + 4) break;
+      p = body + len;
+    }
+    if (!out.artist && albumArtist) out.artist = albumArtist;
+  } catch { /* a damaged tag is not worth stopping the music for */ }
+  return out;
+}
+
+// one door for every format whose tags we can read
+function tagsOf(buf, ext) { const e = (ext || '').toLowerCase(); return e === 'mp3' ? readId3(buf) : e === 'm4a' ? readMp4(buf) : e === 'flac' ? readFlac(buf) : {}; }
+
+// --- the list learns the real names: a quiet background pass reads each track's tag (only its first
 // bytes cross over, via musicHead) and fills in title, artist and a small cover thumb per row.
 // Names are cached across runs; thumbs live for the session.
 const tagCache = (() => { try { return JSON.parse(localStorage.getItem('peeky.tags.v1') || '{}'); } catch { return {}; } })();
@@ -907,12 +996,13 @@ async function indexOne(i, gen) {
   const tr = local.list[i];
   if (!tr || tr.tagged) return;
   tr.tagged = true;
-  if (!/\.mp3$/i.test(tr.path)) return;                       // tags are read for mp3 (the same reach as playback)
+  const ext = (tr.path.match(/\.([^.\\/]+)$/) || [])[1] || '';
+  if (!/^(mp3|m4a|flac)$/i.test(ext)) return;                  // the formats whose tags we can read
   let buf = null;
   try { buf = await window.qazi.musicHead(tr.path); } catch { buf = null; }
   if (!buf || gen !== local.scanGen) return;
   if (!(buf instanceof ArrayBuffer)) buf = new Uint8Array(buf).buffer;
-  const tags = readId3(buf);
+  const tags = tagsOf(buf, ext);
   let changed = false;
   if (tags.title && tags.title !== tr.title) { tr.title = tags.title; changed = true; }
   if (tags.artist && tags.artist !== tr.artist) { tr.artist = tags.artist; changed = true; }
@@ -982,7 +1072,7 @@ async function playLocal(i) {
   if (buf && !(buf instanceof ArrayBuffer)) buf = new Uint8Array(buf).buffer;
   local.loading = false;
   if (!buf || !buf.byteLength) { failLocal(tr); return; }
-  const tags = ext.toLowerCase() === 'mp3' ? readId3(buf) : {};
+  const tags = tagsOf(buf, ext);
   if (tags.title) local.meta.title = tags.title;
   if (tags.artist) local.meta.artist = tags.artist;
   if (local.url) URL.revokeObjectURL(local.url);

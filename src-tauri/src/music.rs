@@ -59,10 +59,45 @@ pub fn head(root: &Path, file: &Path) -> Option<Vec<u8>> {
     if !file.starts_with(&root) || !is_audio(&file) {
         return None;
     }
+    // m4a keeps its tags in the moov atom, which can sit anywhere in the file (often the very end):
+    // walk the top-level atoms and hand over just that atom, header included.
+    if file.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("m4a")).unwrap_or(false) {
+        use std::io::{Read, Seek, SeekFrom};
+        let len = std::fs::metadata(&file).ok()?.len();
+        if let Ok(mut f) = std::fs::File::open(&file) {
+            let mut pos: u64 = 0;
+            while pos + 8 <= len {
+                if f.seek(SeekFrom::Start(pos)).is_err() { break; }
+                let mut h = [0u8; 16];
+                if f.read_exact(&mut h[..8]).is_err() { break; }
+                let mut size = u32::from_be_bytes([h[0], h[1], h[2], h[3]]) as u64;
+                let mut hdr: u64 = 8;
+                if size == 1 {
+                    if f.read_exact(&mut h[8..16]).is_err() { break; }
+                    size = u64::from_be_bytes([h[8], h[9], h[10], h[11], h[12], h[13], h[14], h[15]]);
+                    hdr = 16;
+                } else if size == 0 {
+                    size = len - pos;
+                }
+                if size < hdr { break; }
+                if &h[4..8] == b"moov" {
+                    let take = size.min(16_000_000) as usize;
+                    if f.seek(SeekFrom::Start(pos)).is_ok() {
+                        let mut buf = vec![0u8; take];
+                        if f.read_exact(&mut buf).is_ok() {
+                            return Some(buf);
+                        }
+                    }
+                    break;
+                }
+                pos += size;
+            }
+        }
+    }
     let mut f = std::fs::File::open(&file).ok()?;
     let mut first = [0u8; 10];
     let n = f.read(&mut first).ok()?;
-    let mut want: u64 = 32_768;
+    let mut want: u64 = 2_000_000;
     if n == 10 && &first[0..3] == b"ID3" && (first[3] == 3 || first[3] == 4) {
         let size = ((first[6] as u64 & 127) << 21) | ((first[7] as u64 & 127) << 14) | ((first[8] as u64 & 127) << 7) | (first[9] as u64 & 127);
         want = (10 + size).min(16_000_000);
