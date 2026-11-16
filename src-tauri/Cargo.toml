@@ -3,22 +3,36 @@ name = "peeky"
 version = "2.1.11"
 edition = "2021"
 
+[lib]
+name = "peeky_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
-tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png", "bmp", "jpeg"] }
+ed25519-compact = { version = "2", default-features = false, features = ["std"] }
+
+# the desktop shell (tray, single instance) — everything except Android
+[target.'cfg(not(target_os = "android"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+# Windows-only shell: the tray icon and the Win32/WebView2 bindings
+[target.'cfg(windows)'.dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
 webview2-com = "0.39"
 windows-core = "0.62"
 windows-future = "0.3"
-ed25519-compact = { version = "2", default-features = false, features = ["std"] }
 
-[dependencies.windows]
+# everywhere else (Android): plain Tauri, no desktop extras
+[target.'cfg(not(windows))'.dependencies]
+tauri = { version = "2", features = [] }
+
+[target.'cfg(windows)'.dependencies.windows]
 version = "0.62"
 features = [
   "Foundation", "Foundation_Collections", "Storage_Streams", "ApplicationModel",

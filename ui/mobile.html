@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Peeky</title>
+<link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+<div class="card" id="card">
+  <div class="pt-layer on"></div>
+
+  <header>
+    <span class="brand">Peeky</span>
+    <span class="grow"></span>
+    <span class="count" id="count"></span>
+    <button class="wb" id="rescan" title="Rescan the phone"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </header>
+
+  <section class="nowp" id="nowp">
+    <div class="cover" id="cover"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M10 4v10.2a3.2 3.2 0 1 0 2 3V8h5V4z"/></svg></div>
+    <div class="titles">
+      <div class="title" id="title" dir="auto">Nothing playing</div>
+      <div class="artist" id="artist" dir="auto"></div>
+    </div>
+    <button class="lpill" id="lpill" hidden></button>
+    <div class="lyrics" id="lyrics"><div class="lines" id="lines"></div><div class="lmsg" id="lmsg"></div></div>
+    <div class="seek" id="seek"><canvas class="wave" id="wave"></canvas><div class="toast" id="toast"></div></div>
+    <div class="times"><span id="t-now">0:00</span><span id="t-all">0:00</span></div>
+    <div class="ctl">
+      <button class="ib" id="c-shuffle" title="Shuffle"></button>
+      <button class="ib" id="c-prev" title="Previous"></button>
+      <button class="ib big" id="c-play" title="Play / Pause"></button>
+      <button class="ib" id="c-next" title="Next"></button>
+      <button class="ib" id="c-repeat" title="Repeat"></button>
+    </div>
+    <div class="volrow">
+      <button class="ib sm" id="vmute" title="Mute"></button>
+      <div class="vtrack" id="vtrack"><i id="vfill"></i><b id="vknob"></b></div>
+      <span id="vnum">50</span>
+    </div>
+  </section>
+
+  <section class="lib" id="lib">
+    <input id="q" type="text" placeholder="Search" spellcheck="false" autocomplete="off" dir="auto">
+    <div class="list" id="list"></div>
+  </section>
+
+  <div class="timing" id="timing" hidden>
+    <div class="th"><b>Lyrics timing</b><span>this song only</span></div>
+    <div class="tr"><button id="t-minus" title="Earlier by 0.1s">−</button><output id="t-val">0.0s</output><button id="t-plus" title="Later by 0.1s">+</button></div>
+    <div class="tf"><span>+ later · − earlier</span><button id="t-reset">Reset</button></div>
+    <div class="th wh"><b>Word animation</b><span>all songs</span></div>
+    <div class="seg" id="wmseg"><button data-m="line" title="Highlight the whole line">Line</button><button data-m="fill" title="Each word fills as it is sung">Fill</button><button data-m="pop" title="The word being sung lifts and lights up">Pop</button></div>
+    <div class="th wh"><b>Living background</b><span>all songs</span></div>
+    <div class="seg" id="auseg"><button data-a="on" title="Soft moving colours taken from the cover">On</button><button data-a="off" title="Back to the default look">Off</button></div>
+  </div>
+
+  <nav class="tabbar">
+    <button class="tab on" id="tab-player"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M10 4v10.2a3.2 3.2 0 1 0 2 3V8h5V4z"/></svg><span>Player</span></button>
+    <button class="tab" id="tab-lyrics"><svg viewBox="0 0 24 24"><path d="M4 7h10M4 12h7M4 17h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path fill="currentColor" d="M17 6v8.1a2.2 2.2 0 1 0 1.4 2V9h3V6z"/></svg><span>Lyrics</span><i class="ldot" id="ldot"></i></button>
+    <button class="tab" id="tab-list"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="3.5" cy="6" r="1.3" fill="currentColor"/><circle cx="3.5" cy="12" r="1.3" fill="currentColor"/><circle cx="3.5" cy="18" r="1.3" fill="currentColor"/></svg><span>List</span></button>
+  </nav>
+</div>
+<script src="lyrics.js"></script>
+<script src="mobile.js"></script>
+<script src="player-aurora.js"></script>
+</body>
+</html>

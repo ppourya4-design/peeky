@@ -1,0 +1,73 @@
+name: android
+
+# Builds the Android music player (branch `android` only; the Windows build on main is untouched).
+# Two phases: while src-tauri/gen/android is not committed yet, the job only runs `tauri android init`
+# and uploads the generated project as the `gen-android` artifact. Once that project is committed
+# (with the manifest/MainActivity patches), the same job builds the debug APK instead.
+on:
+  workflow_dispatch:
+  push:
+    branches: [android]
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "ndk;27.0.12077973"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli@^2
+
+      - name: Check for the generated Android project
+        id: gen
+        run: echo "exists=$([ -f src-tauri/gen/android/app/build.gradle.kts ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      # ---- phase 1: generate the Android project and hand it back as an artifact
+      - name: Generate the Android project
+        if: steps.gen.outputs.exists == 'false'
+        working-directory: src-tauri
+        run: tauri android init
+
+      - name: Upload the generated project
+        if: steps.gen.outputs.exists == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gen-android
+          path: src-tauri/gen/android
+
+      # ---- phase 2: the project is committed — build the APK
+      - name: Build the debug APK
+        if: steps.gen.outputs.exists == 'true'
+        working-directory: src-tauri
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+        run: tauri android build --apk --debug --target aarch64
+
+      - name: Upload the APK
+        if: steps.gen.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Peeky-Android
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
