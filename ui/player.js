@@ -72,10 +72,17 @@ listen('player-state', (e) => {
     const url = m.data ? `url(data:image/png;base64,${m.data})` : '';
     $('#cover').style.backgroundImage = url; $('#cover').firstElementChild.style.display = m.data ? 'none' : '';
     $('#bg').style.backgroundImage = url; $('#bg').classList.toggle('none', !m.data);
+    if (window.Aurora) window.Aurora.cover(m.data);
   } else if (m.t === 'state') {
-    S = m; at = performance.now();
+    const now = performance.now(), age = m.ts ? clamp(Date.now() - m.ts, 0, 400) : 0, reported = m.pos + (m.playing ? age : 0);
+    if (S.playing && m.playing && S.idx === m.idx && !scrubbing) {
+      const predicted = S.pos + (now - at), err = reported - predicted;
+      m.pos = Math.abs(err) < 350 ? predicted + err * 0.5 : reported;      // a small difference is eased in; a seek or a new song snaps
+    } else m.pos = reported;
+    S = m; at = now;
     paintTheme(m.top);
     if (window.PlayerLook) window.PlayerLook.set(m);
+    if (window.Aurora) window.Aurora.state(m);
     if (m.folder !== folder) { folder = m.folder; paintFolder(); }
     paintState();
   }
@@ -160,6 +167,7 @@ function paintState() {
   $('#c-repeat').title = ['Repeat: off', 'Repeat: all', 'Repeat: one'][S.repeat] || 'Repeat';
   const v = S.mute ? 0 : S.vol;
   if (!volDrag) { $('#vfill').style.width = v + '%'; $('#vknob').style.left = v + '%'; $('#vnum').textContent = v; }
+  put($('#volbtn'), v === 0 ? 'muted' : 'volume'); put($('#vmute'), v === 0 ? 'muted' : 'volume');
   $('#seek').classList.toggle('off', !(S.on && S.dur > 0));
   markNow();
   lyrTrack();
@@ -232,7 +240,18 @@ vt.addEventListener('pointerdown', (e) => { volDrag = true; vt.classList.add('dr
 vt.addEventListener('pointermove', (e) => { if (volDrag) volFrom(e); });
 const volEnd = () => { if (!volDrag) return; volDrag = false; vt.classList.remove('drag'); cmd('vol', { v: Number(vt.dataset.v) || 0 }); };
 vt.addEventListener('pointerup', volEnd); vt.addEventListener('pointercancel', volEnd);
-document.addEventListener('wheel', (e) => { if (e.target.closest('.list, .lyrics, .timing')) return; e.preventDefault(); cmd('vol', { v: clamp((S.mute ? 0 : S.vol) - Math.sign(e.deltaY) * 3, 0, 100) }); }, { passive: false });
+document.addEventListener('wheel', (e) => { if (e.target.closest('.list, .lyrics, .timing')) return; e.preventDefault(); cmd('vol', { v: clamp((S.mute ? 0 : S.vol) - Math.sign(e.deltaY) * 3, 0, 100) }); volPoke(); }, { passive: false });
+// the volume is a small pill that opens from the speaker button (or on the mouse wheel) and tucks itself away again
+const vpop = $('#volpop'), vbtn = $('#volbtn'); let vTimer = 0;
+put(vbtn, 'volume'); put($('#vmute'), 'volume');
+function volShow(on) { vpop.classList.toggle('on', on); vbtn.classList.toggle('on', on); $('#card').classList.toggle('vol-on', on); vbtn.setAttribute('aria-expanded', on); clearTimeout(vTimer); if (on) vTimer = setTimeout(volIdle, 2600); }
+function volIdle() { if (volDrag || vpop.matches(':hover')) { vTimer = setTimeout(volIdle, 900); return; } volShow(false); }
+function volPoke() { volShow(true); }
+vbtn.addEventListener('click', () => volShow(!vpop.classList.contains('on')));
+$('#vmute').addEventListener('click', () => { cmd('mute'); volPoke(); });
+vpop.addEventListener('pointerdown', volPoke); vpop.addEventListener('pointermove', () => { if (volDrag) volPoke(); });
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest('#volpop, #volbtn')) volShow(false); });
+
 
 // window: drag by the title bar, minimize, close; Space = play / pause
 $('#drag').addEventListener('pointerdown', (e) => { if (e.button === 0 && !e.target.closest('button')) invoke('player_drag'); });
@@ -263,6 +282,22 @@ function lyrPill() {
 }
 // word-by-word: an enhanced .lrc brings its own word times; otherwise the line's time is shared out between its words by their length
 const mkWord = (txt) => { const w = document.createElement('span'); w.className = 'w'; w.textContent = txt; const f = document.createElement('span'); f.className = 'f'; f.textContent = txt; w.appendChild(f); return { el: w, f }; };
+// How fast is this song sung? Learnt from the lines that follow each other without a break (characters per millisecond);
+// a fixed guess made fast lines crawl and left the words far behind the voice.
+const PAUSE = /[,;:.!?…،؛؟]$/, PAUSE_UNITS = 2.2;
+function unitsOf(parts) { let total = 0; const lens = parts.map((p, j) => { const u = p.length + 1 + (j < parts.length - 1 && PAUSE.test(p) ? PAUSE_UNITS : 0); total += u; return u; }); return { lens, total }; }
+function singRate(rows) {
+  if (rows._rate) return rows._rate;
+  const r = [];
+  for (let i = 0; i + 1 < rows.length; i++) {
+    const parts = (rows[i][1] || '').split(/\s+/).filter(Boolean), gap = rows[i + 1][0] - rows[i][0];
+    if (parts.length >= 2 && gap > 900 && gap < 7000) r.push(unitsOf(parts).total / gap);
+  }
+  r.sort((a, b) => a - b);
+  // lines are sung a little faster than the time to the next line (that includes the breath), so take the quicker end
+  const rate = r.length >= 3 ? r[Math.floor(r.length * 0.7)] * 1.08 : 1 / 80;
+  return (rows._rate = clamp(rate, 1 / 170, 1 / 40));
+}
 function buildWords(x, rows, i) {
   const t0 = rows[i][0], nxt = i + 1 < rows.length ? rows[i + 1][0] : t0 + 5000, ws = [], wt = [];
   if (rows[i][2]) {
@@ -272,12 +307,13 @@ function buildWords(x, rows, i) {
       ws.push(w); wt.push({ s: t, e: j + 1 < tok.length ? tok[j + 1][0] : Math.min(nxt, t + 900) });
     });
   } else {
-    const parts = rows[i][1].split(/\s+/).filter(Boolean), lens = parts.map((p) => p.length + 1), tot = lens.reduce((a, b) => a + b, 0);
-    const span = Math.min(Math.max(300, nxt - t0) * 0.92, Math.max(1500, tot * 130));
+    const parts = rows[i][1].split(/\s+/).filter(Boolean), { lens, total } = unitsOf(parts);
+    const span = clamp(total / singRate(rows), 350, Math.max(350, (nxt - t0) * 0.95));
     let acc = 0;
     parts.forEach((p, j) => {
       const w = mkWord(p); x.appendChild(w.el); if (j < parts.length - 1) x.appendChild(document.createTextNode(' '));
-      ws.push(w); wt.push({ s: t0 + span * acc / tot, e: t0 + span * (acc + lens[j]) / tot }); acc += lens[j];
+      const pause = j < parts.length - 1 && PAUSE.test(p), end = acc + (pause ? p.length + 0.6 : lens[j]);     // a comma lets the voice rest before the next word
+      ws.push(w); wt.push({ s: t0 + span * acc / total, e: t0 + span * end / total }); acc += lens[j];
     });
   }
   L.ws[i] = ws; L.wt[i] = wt;
@@ -344,9 +380,10 @@ function lyrTrack(force) {
 function lyrAgain() { Lyr.store.drop(L.key); lyrTrack(true); }
 
 // the line that is being sung: the last one whose time (shifted by the song's own nudge) has passed
+const LEAD = 90;      // ms: lines and words light up a touch early, because the glow takes a moment to be seen
 function lyrTick(pos) {
   if (!L || !L.on || L.state !== 'synced') return;      // (the first frame runs before this section is set up)
-  const rows = L.data.synced, at = pos - L.off;
+  const rows = L.data.synced, at = pos + LEAD - L.off;
   let lo = 0, hi = rows.length - 1, idx = -1;
   while (lo <= hi) { const mid = (lo + hi) >> 1; if (rows[mid][0] <= at) { idx = mid; lo = mid + 1; } else hi = mid - 1; }
   if (L.manual && performance.now() - L.manualAt > 2600) { L.manual = 0; lyrScroll(); }

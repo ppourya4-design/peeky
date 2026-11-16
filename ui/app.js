@@ -1233,7 +1233,7 @@ function sendPlayer(force) {
   }
   if (force || sentCover !== local.coverId) { sentCover = local.coverId; out({ t: 'cover', id: local.coverId, data: local.cover }); }
   out({
-    t: 'state', on: local.on, loading: local.loading, playing: local.on && (local.loading || !a.paused), idx: local.on ? local.idx : -1,
+    t: 'state', ts: Date.now(), on: local.on, loading: local.loading, playing: local.on && (local.loading || !a.paused), idx: local.on ? local.idx : -1,
     title: m.title || '', artist: m.artist || '', pos: Math.round(a.currentTime * 1000), dur: isFinite(a.duration) ? Math.round(a.duration * 1000) : 0,
     shuffle: shuffleOn(), repeat: repeatMode(), count: local.list.length, vol: getVol(), mute: getMute(), scanning: local.scanning, folder: local.folder || '',
     // the window wears the pill's look: a skin brings its own animation, plain black takes the cover's colours (any source, not only local files)

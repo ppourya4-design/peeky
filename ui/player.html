@@ -38,7 +38,6 @@
       <button class="ib" id="c-repeat" title="Repeat"></button>
       <button class="ib sk" id="c-fwd" title="Forward 10 seconds"></button>
     </div>
-    <div class="vol"><div class="vtrack" id="vtrack"><i id="vfill"></i><b id="vknob"></b></div><span id="vnum">50</span></div>
   </section>
 
   <section class="lib">
@@ -51,20 +50,25 @@
   </section>
 
   <div class="dock" id="dock">
+    <button class="volbtn" id="volbtn" title="Volume" aria-expanded="false"></button>
     <button class="lyrbtn" id="lyrbtn" aria-pressed="false" title="Show the lyrics"><span class="lic" id="lyric"></span><span>Lyrics</span><i class="ldot" id="ldot"></i></button>
     <button class="listbtn" id="listbtn" aria-expanded="false" title="Show the music list"><span>List</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </div>
+  <div class="volpop" id="volpop"><button class="vm" id="vmute" title="Mute"></button><div class="vtrack" id="vtrack"><i id="vfill"></i><b id="vknob"></b></div><span id="vnum">50</span></div>
   <div class="timing" id="timing" hidden>
     <div class="th"><b>Lyrics timing</b><span>this song only</span></div>
     <div class="tr"><button id="t-minus" title="Earlier by 0.1s">−</button><output id="t-val">0.0s</output><button id="t-plus" title="Later by 0.1s">+</button></div>
     <div class="tf"><span>+ later · − earlier</span><button id="t-reset">Reset</button></div>
     <div class="th wh"><b>Word animation</b><span>all songs</span></div>
     <div class="seg" id="wmseg"><button data-m="line" title="Highlight the whole line">Line</button><button data-m="fill" title="Each word fills as it is sung">Fill</button><button data-m="pop" title="The word being sung lifts and lights up">Pop</button></div>
+    <div class="th wh"><b>Living background</b><span>all songs</span></div>
+    <div class="seg" id="auseg"><button data-a="on" title="Soft moving colours taken from the cover">On</button><button data-a="off" title="Back to the default look">Off</button></div>
   </div>
   <input type="file" id="lrcfile" accept=".lrc,.txt,text/plain" hidden>
 </div>
 <script src="lyrics.js"></script>
 <script src="player-look.js"></script>
 <script src="player.js"></script>
+<script src="player-aurora.js"></script>
 </body>
 </html>
