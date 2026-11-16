@@ -18,8 +18,18 @@ function parseLRC(text) {
       line = line.slice(m[0].length);
     }
     if (!stamps.length) continue;
-    const txt = line.replace(/<\d+:\d+(?:[.:]\d+)?>/g, '').trim();      // word-by-word stamps are not used
-    for (const t of stamps) out.push([Math.max(0, t - offset), txt]);
+    // "enhanced" LRC carries a stamp before every word: <00:12.40>word <00:12.90>next. Keep those; plain LRC gets estimated word timing in the player.
+    let words = null;
+    if (/<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>/.test(line)) {
+      words = []; const re = /<(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?>([^<]*)/g; let wm;
+      while ((wm = re.exec(line))) {
+        if (!wm[4].trim()) continue;
+        words.push([Math.max(0, parseInt(wm[1], 10) * 60000 + parseInt(wm[2], 10) * 1000 + (wm[3] ? parseInt(wm[3].padEnd(3, '0').slice(0, 3), 10) : 0) - offset), wm[4]]);
+      }
+      if (!words.length) words = null;
+    }
+    const txt = line.replace(/<\d+:\d+(?:[.:]\d+)?>/g, '').trim();
+    for (const t of stamps) out.push(words ? [Math.max(0, t - offset), txt, words] : [Math.max(0, t - offset), txt]);
   }
   return out.sort((a, b) => a[0] - b[0]);
 }

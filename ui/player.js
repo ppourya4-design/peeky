@@ -165,10 +165,37 @@ function paintState() {
   lyrTrack();
   if (!tracks.length || (S.scanning && !tracks.length)) renderList();
 }
+// waveform seek bar: bars shaped from the song's name, so every song keeps its own look (the player can't see the audio itself)
+const wvEl = $('#wave'), wvx = wvEl.getContext('2d');
+let wvKey = null, wvBars = [], wvW = 0, wvH = 0, wvN = 0, wvFilled = -1;
+function wvBuild(key, n) {
+  let a = 2166136261; for (let i = 0; i < key.length; i++) { a ^= key.charCodeAt(i); a = Math.imul(a, 16777619); }
+  const rnd = () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const p1 = rnd() * 6, p2 = rnd() * 6, f1 = .12 + rnd() * .1, f2 = .31 + rnd() * .2;
+  wvBars = []; for (let i = 0; i < n; i++) wvBars.push(clamp((.5 + .28 * Math.sin(i * f1 + p1) + .18 * Math.sin(i * f2 + p2)) * (.6 + .4 * rnd()), .12, 1));
+}
+function drawWave(r) {
+  const w = wvEl.clientWidth, h = wvEl.clientHeight; if (!w || !h) return;      // hidden in lyrics view
+  const key = S.on ? (S.title || '') + '\u0001' + (S.artist || '') : 'peeky', n = Math.max(8, Math.floor((w + 2) / 5)), dpr = window.devicePixelRatio || 1;
+  const resized = w !== wvW || h !== wvH;
+  if (resized) { wvW = w; wvH = h; wvEl.width = Math.round(w * dpr); wvEl.height = Math.round(h * dpr); }
+  if (key !== wvKey || n !== wvN) { wvKey = key; wvN = n; wvBuild(key, n); wvFilled = -1; }
+  const filled = Math.floor(r * n + (r > 0 ? .5 : 0));
+  if (!resized && filled === wvFilled) return;
+  wvFilled = filled;
+  wvx.setTransform(dpr, 0, 0, dpr, 0, 0); wvx.clearRect(0, 0, w, h);
+  const bw = (w - (n - 1) * 2) / n;
+  for (let i = 0; i < n; i++) {
+    const bh = Math.max(3, wvBars[i] * h), x = i * (bw + 2), y = (h - bh) / 2;
+    wvx.fillStyle = i < filled ? '#fff' : 'rgba(255,255,255,.28)';
+    wvx.beginPath(); if (wvx.roundRect) wvx.roundRect(x, y, bw, bh, Math.min(bw / 2, 2)); else wvx.rect(x, y, bw, bh); wvx.fill();
+  }
+}
 (function loop() {
   const pos = scrubbing ? scrubR * S.dur : clamp(S.pos + (S.playing ? performance.now() - at : 0), 0, S.dur || 0);
   const r = S.dur > 0 ? pos / S.dur : 0;
   $('#seek-fill').style.width = (r * 100).toFixed(2) + '%'; $('#seek-knob').style.left = (r * 100).toFixed(2) + '%';
+  drawWave(r);
   lyrTick(pos);
   $('#t-now').textContent = fmt(pos); $('#t-all').textContent = fmt(S.dur || 0);
   requestAnimationFrame(loop);
@@ -215,7 +242,9 @@ document.addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target
 
 // ---------------------------------------------------------------- lyrics (LRCLIB)
 // The Lyrics button turns the player into a lyrics view: small cover and title on top, the lyrics gliding with the song, ±10s buttons.
-var L = { on: false, key: '', tok: 0, state: 'idle', data: null, off: 0, active: -2, els: [], manual: 0, manualAt: 0, timer: 0 };
+var L = { on: false, key: '', tok: 0, state: 'idle', data: null, off: 0, active: -2, els: [], ws: [], wt: [], manual: 0, manualAt: 0, timer: 0 };
+// how the sung word shows: 'line' = the whole line lights up, 'fill' = every word fills as it is sung, 'pop' = the word lifts and lights up
+let WM = 'fill'; try { const m = localStorage.getItem('peeky.lyr.wm'); if (m === 'line' || m === 'fill' || m === 'pop') WM = m; } catch { /* default */ }
 const lyEl = $('#lyrics'), lnEl = $('#lines'), lmsg = $('#lmsg'), lpill = $('#lpill'), tmEl = $('#timing');
 const lyrKey = () => (S.on && S.title ? S.title + '\u0001' + (S.artist || '') : '');
 const offText = (ms) => (ms > 0 ? '+' : ms < 0 ? '−' : '') + (Math.abs(ms) / 1000).toFixed(1) + 's';
@@ -228,21 +257,47 @@ function lyrPill() {
   p.innerHTML = s === 'search' ? '<i></i>Searching…' : s === 'synced' ? '<i></i>Synced' + (L.off ? ' · ' + offText(L.off) : '') : s === 'plain' ? 'Unsynced' : s === 'instr' ? 'Instrumental' : s === 'error' ? 'Offline' : s === 'none' ? 'No lyrics' : '';
   if (s === 'search') p.classList.add('busy');
   if (s === 'synced') p.classList.add('ok');
-  p.title = s === 'synced' ? 'Timing off? Click to nudge ±0.1s' : '';
+  p.title = s === 'synced' ? 'Timing and word animation' : '';
   if (s !== 'synced') tmEl.hidden = true;
   $('#lyrbtn').classList.toggle('has', s === 'synced' || s === 'plain');
 }
+// word-by-word: an enhanced .lrc brings its own word times; otherwise the line's time is shared out between its words by their length
+const mkWord = (txt) => { const w = document.createElement('span'); w.className = 'w'; w.textContent = txt; const f = document.createElement('span'); f.className = 'f'; f.textContent = txt; w.appendChild(f); return { el: w, f }; };
+function buildWords(x, rows, i) {
+  const t0 = rows[i][0], nxt = i + 1 < rows.length ? rows[i + 1][0] : t0 + 5000, ws = [], wt = [];
+  if (rows[i][2]) {
+    const tok = rows[i][2];
+    tok.forEach(([t, txt], j) => {
+      const w = mkWord(txt.trimEnd()); x.appendChild(w.el); if (/\s$/.test(txt)) x.appendChild(document.createTextNode(' '));
+      ws.push(w); wt.push({ s: t, e: j + 1 < tok.length ? tok[j + 1][0] : Math.min(nxt, t + 900) });
+    });
+  } else {
+    const parts = rows[i][1].split(/\s+/).filter(Boolean), lens = parts.map((p) => p.length + 1), tot = lens.reduce((a, b) => a + b, 0);
+    const span = Math.min(Math.max(300, nxt - t0) * 0.92, Math.max(1500, tot * 130));
+    let acc = 0;
+    parts.forEach((p, j) => {
+      const w = mkWord(p); x.appendChild(w.el); if (j < parts.length - 1) x.appendChild(document.createTextNode(' '));
+      ws.push(w); wt.push({ s: t0 + span * acc / tot, e: t0 + span * (acc + lens[j]) / tot }); acc += lens[j];
+    });
+  }
+  L.ws[i] = ws; L.wt[i] = wt;
+}
+function setRowWords(i, full) {
+  const ws = L.ws[i]; if (!ws) return;
+  for (const w of ws) { w.f.style.width = full ? '100%' : '0'; w.el.classList.remove('on'); }
+}
 function lyrRender() {
   const s = L.state;
-  lyEl.className = 'lyrics' + (s === 'plain' ? ' plain' : '') + (s === 'synced' || s === 'plain' ? '' : ' msg');
-  lnEl.textContent = ''; L.els = []; L.active = -2; lnEl.style.transform = '';
+  lyEl.className = 'lyrics' + (s === 'plain' ? ' plain' : '') + (s === 'synced' || s === 'plain' ? '' : ' msg') + (s === 'synced' && WM !== 'line' ? ' wm' : '');
+  lnEl.textContent = ''; L.els = []; L.ws = []; L.wt = []; L.active = -2; lnEl.style.transform = '';
   if (s === 'synced' || s === 'plain') {
     const frag = document.createDocumentFragment();
     const rows = s === 'synced' ? L.data.synced : L.data.plain.map((t) => [-1, t]);
     rows.forEach(([t, text], i) => {
       const row = document.createElement('div'); row.className = 'ln' + (text ? '' : ' gap'); row.dataset.i = i;
       const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = t >= 0 ? fmt(t) : '';
-      const x = document.createElement('span'); x.className = 'x'; x.dir = 'auto'; x.textContent = text || '♪';
+      const x = document.createElement('span'); x.className = 'x'; x.dir = 'auto';
+      if (s === 'synced' && WM !== 'line' && text) buildWords(x, rows, i); else x.textContent = text || '♪';
       if (t >= 0) row.append(tm, x); else row.append(x);
       row.style.setProperty('--d', 4);
       frag.appendChild(row); L.els.push(row);
@@ -260,8 +315,8 @@ function setLyr(state) { L.state = state; lyrPill(); lyrRender(); }
 function applyLyr(r) {
   L.data = r;
   const rd = r && r.dur > 0 && S.dur > 0 ? (S.dur / 1000) / r.dur : 1;      // a slowed / sped-up copy of the song: stretch the
-  if (r && r.synced && rd > 0.7 && rd < 1.45 && Math.abs(rd - 1) > 0.03)    // line stamps by the same ratio and they line up again
-    L.data = { ...r, synced: r.synced.map(([t, x]) => [Math.round(t * rd), x]) };
+  if (r && r.synced && rd > 0.7 && rd < 1.45 && Math.abs(rd - 1) > 0.03)    // line stamps (and word stamps) by the same ratio
+    L.data = { ...r, synced: r.synced.map(([t, x, w]) => [Math.round(t * rd), x, w ? w.map(([wt, wx]) => [Math.round(wt * rd), wx]) : w]) };
   if (r.instrumental) setLyr('instr');
   else if (r.synced && r.synced.length) setLyr('synced');
   else if (r.plain) { r.plain = Array.isArray(r.plain) ? r.plain : Lyr.parsePlain(r.plain); setLyr('plain'); }
@@ -295,8 +350,19 @@ function lyrTick(pos) {
   let lo = 0, hi = rows.length - 1, idx = -1;
   while (lo <= hi) { const mid = (lo + hi) >> 1; if (rows[mid][0] <= at) { idx = mid; lo = mid + 1; } else hi = mid - 1; }
   if (L.manual && performance.now() - L.manualAt > 2600) { L.manual = 0; lyrScroll(); }
-  if (idx === L.active) return;
-  L.active = idx;
+  if (idx !== L.active) lyrPick(idx); else lyrWords(idx, at);
+}
+function lyrWords(idx, at) {      // the words of the line being sung, every frame
+  const ws = L.ws[idx], wt = L.wt[idx]; if (WM === 'line' || !ws) return;
+  for (let j = 0; j < ws.length; j++) {
+    const v = clamp((at - wt[j].s) / Math.max(1, wt[j].e - wt[j].s), 0, 1);
+    if (WM === 'fill') ws[j].f.style.width = (v * 100).toFixed(1) + '%';
+    else { ws[j].f.style.width = v > 0 ? '100%' : '0'; ws[j].el.classList.toggle('on', v > 0 && v < 1); }
+  }
+}
+function lyrPick(idx) {
+  const prev = L.active; L.active = idx;
+  if (prev >= 0) setRowWords(prev, prev < idx);
   for (let i = 0; i < L.els.length; i++) {
     const el = L.els[i], d = Math.min(4, Math.abs(i - Math.max(idx, 0)));
     el.style.setProperty('--d', idx < 0 ? Math.min(4, i + 1) : d); el.classList.toggle('cur', i === idx);
@@ -346,7 +412,7 @@ function skip(delta) {
 $('#c-back').addEventListener('click', () => skip(-10000));
 $('#c-fwd').addEventListener('click', () => skip(10000));
 
-// timing: click "Synced" to nudge this song's lyrics earlier or later by 0.1s
+// settings: click "Synced" to nudge this song's lyrics by 0.1s and to pick how the sung word shows
 function nudge(ms) {
   L.off = clamp(Math.round((L.off + ms) / 100) * 100, -15000, 15000);
   Lyr.store.setOffset(L.key, L.off);
@@ -359,6 +425,13 @@ lpill.addEventListener('click', () => {
 $('#t-minus').addEventListener('click', () => nudge(-100));
 $('#t-plus').addEventListener('click', () => nudge(100));
 $('#t-reset').addEventListener('click', () => nudge(-L.off));
+// word animation: Line / Fill / Pop (kept for every song)
+const wmBtns = [...document.querySelectorAll('#wmseg button')], paintWm = () => wmBtns.forEach((b) => b.classList.toggle('on', b.dataset.m === WM));
+wmBtns.forEach((b) => b.addEventListener('click', () => {
+  WM = b.dataset.m; try { localStorage.setItem('peeky.lyr.wm', WM); } catch { /* not remembered */ }
+  paintWm(); lyrRender(); lyrScroll();
+}));
+paintWm();
 document.addEventListener('pointerdown', (e) => { if (!tmEl.hidden && !e.target.closest('#timing, #lpill')) { tmEl.hidden = true; lpill.classList.remove('on'); } });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !tmEl.hidden) { tmEl.hidden = true; lpill.classList.remove('on'); e.stopImmediatePropagation(); } }, true);
 

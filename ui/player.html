@@ -27,7 +27,7 @@
     </div>
     <button class="lpill" id="lpill" hidden></button>
     <div class="lyrics" id="lyrics"><div class="lines" id="lines"></div><div class="lmsg" id="lmsg"></div></div>
-    <div class="seek" id="seek"><div class="track"><i id="seek-fill"></i><b id="seek-knob"></b></div><div class="toast" id="toast"></div></div>
+    <div class="seek" id="seek"><canvas class="wave" id="wave"></canvas><div class="track"><i id="seek-fill"></i><b id="seek-knob"></b></div><div class="toast" id="toast"></div></div>
     <div class="times"><span id="t-now">0:00</span><span id="t-all">0:00</span></div>
     <div class="ctl">
       <button class="ib sk" id="c-back" title="Back 10 seconds"></button>
@@ -58,6 +58,8 @@
     <div class="th"><b>Lyrics timing</b><span>this song only</span></div>
     <div class="tr"><button id="t-minus" title="Earlier by 0.1s">−</button><output id="t-val">0.0s</output><button id="t-plus" title="Later by 0.1s">+</button></div>
     <div class="tf"><span>+ later · − earlier</span><button id="t-reset">Reset</button></div>
+    <div class="th wh"><b>Word animation</b><span>all songs</span></div>
+    <div class="seg" id="wmseg"><button data-m="line" title="Highlight the whole line">Line</button><button data-m="fill" title="Each word fills as it is sung">Fill</button><button data-m="pop" title="The word being sung lifts and lights up">Pop</button></div>
   </div>
   <input type="file" id="lrcfile" accept=".lrc,.txt,text/plain" hidden>
 </div>
