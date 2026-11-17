@@ -211,6 +211,7 @@ function paintState() {
   S.playing = P.on && NP.playing;
   $('#title').textContent = P.on ? (P.title || 'Unknown title') : 'Nothing playing';
   $('#artist').textContent = P.on ? (P.artist || '') : '';
+  $('#card').classList.toggle('no-track', !P.on);   // empty state: compact stack, hint instead of the waveform
   put($('#c-play'), S.playing ? 'pause' : 'play');
   $('#cover').classList.toggle('playing', S.playing);
   $('#c-shuffle').classList.toggle('on', !!P.shuffle);
@@ -369,6 +370,10 @@ async function pollState() {
     if (st) {
       const wasPlaying = NP.playing;
       npSync(st);
+      // the service lost its track while this UI still shows one (its paused
+      // notification was dismissed -> delete-intent stop): fall back to the
+      // empty state instead of offering controls that poke a dead service
+      if (!st.path && P.on && !P.loading) { P.on = false; NP.playing = false; paintState(); return; }
       if (st.path && P.on && st.path !== (P.list[P.idx] || {}).path) adoptByPath(st.path, st);
       if (P.on && NP.playing !== S.playing) paintState();
       if (wasPlaying && !NP.playing) saveResume();
