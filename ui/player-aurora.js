@@ -50,11 +50,14 @@ function paletteFromImage(img, count = 3) {
     const b = bins[best]; picked.push({ h: best * 15 + 7, rgb: [b.r / b.w, b.g / b.w, b.b / b.w], w: b.w });
   }
   if (!picked.length) return { cols: GRAPHITE, shares: [.5, .3, .2] };   // a grey cover stays calm and grey
-  const out = picked.map((p) => { const [hh, s, l] = hsl(...p.rgb); return rgbOf(hh, clamp(s, .55, .95), clamp(l, .42, .58)); });
+  // v5: clamp into a deep, muted range — the old .55–.95 saturation at .42–.58
+  // lightness turned warm covers (orange/brown art) into a muddy wash over the
+  // whole screen; deep jewel tones read as coloured light on the black base
+  const out = picked.map((p) => { const [hh, s, l] = hsl(...p.rgb); return rgbOf(hh, clamp(s, .38, .65), clamp(l, .30, .46)); });
   const sum = picked.reduce((a, p) => a + p.w, 0) || 1;               // each real colour's share of the coloured mass,
   const shares = picked.map((p) => p.w / sum);                        // normalised so the real colours sum to 1
   for (let i = 0; out.length < count; i++) {                          // a one-colour cover: neighbouring shades of it
-    const [hh, s, l] = hsl(...picked[i % picked.length].rgb); out.push(rgbOf((hh + 22 * (i + 1)) % 360, s, clamp(l + (i % 2 ? .08 : -.08), .35, .65)));
+    const [hh, s, l] = hsl(...picked[i % picked.length].rgb); out.push(rgbOf((hh + 22 * (i + 1)) % 360, clamp(s, .38, .65), clamp(l + (i % 2 ? .07 : -.07), .24, .5)));
     shares.push(shares[i % picked.length] * .4);                      // a derived shade counts for less than its real colour
   }
   return { cols: out.map((c) => `rgb(${c})`), shares };
@@ -66,7 +69,7 @@ function apply(cols, shares) {
   cols.slice(0, 3).forEach((c, i) => {
     const s = sh[Math.min(i, sh.length - 1)];                         // a dominant colour gets a bigger, brighter blob;
     card.style.setProperty('--c' + (i + 1), c);                       // a rare one stays small and faint
-    card.style.setProperty('--a' + (i + 1), (0.22 + 0.78 * s).toFixed(3));
+    card.style.setProperty('--a' + (i + 1), (0.16 + 0.58 * s).toFixed(3));
     card.style.setProperty('--s' + (i + 1), (0.55 + 1.15 * s).toFixed(3));
   });
 }
