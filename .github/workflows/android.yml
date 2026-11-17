@@ -23,10 +23,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "ndk;27.0.12077973"
+      # (no setup-android action: v3 dies installing the removed legacy "tools" package;
+      # the runner image already ships the SDK — just accept licenses and add what's missing)
+      - name: Accept licenses and install Android SDK packages
+        run: |
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort | tail -1)
+          echo "sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-34" "build-tools;34.0.0" "ndk;27.0.12077973"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
