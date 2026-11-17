@@ -1895,15 +1895,88 @@ $$('[data-act]').forEach((b) => b.addEventListener('click', async () => {
   window.qazi.action(a);
 }));
 
+// ------------------------------------------ the tool row is the owner's: hold a tool 3 s, then drag it into place
+const toolView = document.querySelector('[data-view="tools"]');
+const toolKey = (b) => b.dataset.act || b.id.replace(/^t-/, '');
+function applyToolOrder(order) {
+  if (!Array.isArray(order) || !order.length) return;
+  const pos = new Map(order.map((k, i) => [k, i]));
+  [...toolView.querySelectorAll('.ib')].map((b, i) => [b, i])
+    .sort((x, y) => ((pos.get(toolKey(x[0])) ?? 99) - (pos.get(toolKey(y[0])) ?? 99)) || (x[1] - y[1]))
+    .forEach(([b]) => toolView.appendChild(b));
+}
+let toolEdit = null;   // { prevManual, idle } while the row is being arranged
+function enterToolEdit() {
+  if (toolEdit) return;
+  toolEdit = { prevManual: st.manual, idle: Date.now() };
+  st.manual = 'tools';
+  toolView.classList.add('editing');
+  const sh = $('#t-shelf'); if (sh) sh.draggable = false;
+  render();
+}
+function exitToolEdit() {
+  if (!toolEdit) return;
+  st.manual = toolEdit.prevManual; toolEdit = null;
+  toolView.classList.remove('editing');
+  const sh = $('#t-shelf'); if (sh) sh.draggable = true;
+  render();
+}
+setInterval(() => { if (toolEdit && Date.now() - toolEdit.idle > 10000) exitToolEdit(); }, 500);
+let pressTimer = null, pressXY = null, dragBtn = null, dragFrom = 0;
+toolView.addEventListener('pointerdown', (e) => {
+  const b = e.target.closest('.ib');
+  if (toolEdit) {
+    if (!b) { exitToolEdit(); return; }
+    dragBtn = b; dragFrom = e.clientX;
+    try { b.setPointerCapture(e.pointerId); } catch { /* mouse needs no capture */ }
+    return;
+  }
+  if (!b) return;
+  pressXY = [e.clientX, e.clientY];
+  clearTimeout(pressTimer);
+  pressTimer = setTimeout(enterToolEdit, 3000);
+});
+toolView.addEventListener('pointermove', (e) => {
+  if (pressXY && Math.hypot(e.clientX - pressXY[0], e.clientY - pressXY[1]) > 6) { clearTimeout(pressTimer); pressXY = null; }
+  if (!dragBtn) return;
+  const dx = e.clientX - dragFrom;
+  if (!dragBtn.classList.contains('drag') && Math.abs(dx) < 5) return;
+  dragBtn.classList.add('drag');
+  dragBtn.style.transform = `translateX(${dx}px)`;
+  const r = dragBtn.getBoundingClientRect(), center = r.left + r.width / 2, before = dragBtn.offsetLeft;
+  for (const sib of toolView.querySelectorAll('.ib:not(.hidden)')) {
+    if (sib === dragBtn) continue;
+    const sr = sib.getBoundingClientRect(), sc = sr.left + sr.width / 2;
+    if (center < sc && (dragBtn.compareDocumentPosition(sib) & Node.DOCUMENT_POSITION_FOLLOWING)) { toolView.insertBefore(dragBtn, sib); break; }
+    if (center > sc && (dragBtn.compareDocumentPosition(sib) & Node.DOCUMENT_POSITION_PRECEDING)) { toolView.insertBefore(dragBtn, sib.nextSibling); break; }
+  }
+  const shift = dragBtn.offsetLeft - before;
+  if (shift) { dragFrom += shift; dragBtn.style.transform = `translateX(${e.clientX - dragFrom}px)`; }
+});
+const endToolPress = () => {
+  clearTimeout(pressTimer); pressXY = null;
+  if (!dragBtn) return;
+  const wasDrag = dragBtn.classList.contains('drag');
+  dragBtn.classList.remove('drag'); dragBtn.style.transform = ''; dragBtn = null;
+  if (toolEdit) {
+    toolEdit.idle = Date.now();
+    if (wasDrag) window.qazi.setSetting('toolOrder', [...toolView.querySelectorAll('.ib')].map(toolKey));
+  }
+};
+toolView.addEventListener('pointerup', endToolPress);
+toolView.addEventListener('pointercancel', endToolPress);
+toolView.addEventListener('click', (e) => { if (toolEdit) { e.stopPropagation(); e.preventDefault(); } }, true);
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && toolEdit) exitToolEdit(); });
+
 // ------------------------------------------------------------ timer
-function beep() {
+function beep(vol = 0.25) {
   try {
     const ctx = new AudioContext();
     [0, 0.22, 0.44, 0.9, 1.12, 1.34].forEach((t, i) => {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = 'sine'; o.frequency.value = i % 3 === 2 ? 1175 : 880;
       g.gain.setValueAtTime(0.0001, ctx.currentTime + t);
-      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(vol, ctx.currentTime + t + 0.02);
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.18);
       o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.2);
     });
@@ -1978,6 +2051,15 @@ window.addEventListener('blur', () => {
 // Jot a line and it is kept. A time in the line ("call Ali in 20m", "at 18:30 gym", "۱۰ دقیقه دیگه چای")
 // turns it into a reminder that comes back as a notification.
 const faDigits = (s) => s.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+// Persian numbers as words: «ده دقیقه دیگه», «بیست و پنج دقیقه تا پایان کلاس», «نیم ساعت دیگه»
+const FA_NUM = { 'یک': 1, 'یه': 1, 'دو': 2, 'سه': 3, 'چهار': 4, 'پنج': 5, 'شش': 6, 'هفت': 7, 'هشت': 8, 'نه': 9, 'ده': 10, 'یازده': 11, 'دوازده': 12, 'سیزده': 13, 'چهارده': 14, 'پانزده': 15, 'شانزده': 16, 'هفده': 17, 'هجده': 18, 'نوزده': 19, 'بیست': 20, 'سی': 30, 'چهل': 40, 'پنجاه': 50, 'شصت': 60, 'هفتاد': 70, 'هشتاد': 80, 'نود': 90, 'صد': 100 };
+const FA_NUM_RE = '(?:نیم|ربع|' + Object.keys(FA_NUM).sort((a, b) => b.length - a.length).join('|') + ')(?:\\s+و\\s+(?:یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه))?';
+function faNumVal(phrase) {
+  const t = phrase.trim();
+  if (t === 'نیم') return 0.5;
+  if (t === 'ربع') return 0.25;
+  return t.split(/\s+و\s+/).reduce((sum, w) => sum + (FA_NUM[w.trim()] || 0), 0);
+}
 function parseReminder(raw) {
   const text = faDigits(raw);
   const clean = (m) => (text.slice(0, m.index) + ' ' + text.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim() || raw.trim();
@@ -1986,8 +2068,12 @@ function parseReminder(raw) {
     const u = m[2][0].toLowerCase(), k = u === 's' ? 1000 : u === 'm' ? 60000 : 3600000;
     return { text: clean(m), at: Date.now() + Math.round(parseFloat(m[1]) * k) };
   }
-  m = /(\d+)\s*(ثانیه|دقیقه|ساعت)\s*(?:دیگه|دیگر|بعد)/.exec(text);
-  if (m) { const k = m[2] === 'ثانیه' ? 1000 : m[2] === 'دقیقه' ? 60000 : 3600000; return { text: clean(m), at: Date.now() + Number(m[1]) * k }; }
+  m = new RegExp('(\\d+(?:\\.\\d+)?|' + FA_NUM_RE + ')\\s*(ثانیه|دقیقه|ساعت)(?:\\u200c?ی)?\\s*(?:دیگه|دیگر|بعد|تا|مونده|مانده)').exec(text);
+  if (m) {
+    const n = /^\d/.test(m[1]) ? parseFloat(m[1]) : faNumVal(m[1]);
+    const k = m[2] === 'ثانیه' ? 1000 : m[2] === 'دقیقه' ? 60000 : 3600000;
+    if (n > 0) return { text: clean(m), at: Date.now() + Math.round(n * k) };
+  }
   m = /(?:^|\s)(tomorrow\s+|فردا\s+)?(?:at|ساعت)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?(?=\s|$)/i.exec(text);
   if (m) {
     let h = Number(m[2]); const min = Number(m[3] || 0), ap = (m[4] || '').toLowerCase();
@@ -2060,9 +2146,29 @@ setInterval(() => {
     if (!n.remind || n.fired || n.remind > now) continue;
     n.fired = true;
     window.qazi.noteFired(n.id).then(setNotes);
-    beep(); showNotif({ app: 'Reminder', title: n.text.replace(/\s+/g, ' '), body: '', long: true, action: 'note' });
+    beep(0.9); showNotif({ app: 'Reminder', title: n.text.replace(/\s+/g, ' '), body: '', long: true, action: 'note' });
+    startAlert();
   }
 }, 3000);
+// …and a due reminder grabs the pill itself: deep red, while the eyes keep looking for you until you touch it
+let alertUntil = 0, alertTick = null;
+function startAlert() {
+  alertUntil = Date.now() + 20000;
+  island.classList.add('alerting');
+  clearInterval(alertTick);
+  let side = 0;
+  alertTick = setInterval(() => {
+    if (Date.now() > alertUntil) { stopAlert(); return; }
+    if (cur === 'idle' && st.face === 'eyes') emote(side++ % 2 ? 'look-r' : 'look-l', 480);
+  }, 560);
+}
+function stopAlert() {
+  alertUntil = 0;
+  clearInterval(alertTick); alertTick = null;
+  island.classList.remove('alerting');
+  face.className = '';
+}
+island.addEventListener('pointerdown', () => { if (alertUntil) stopAlert(); });
 
 // ------------------------------------------------------------ passwords
 // The vault lives encrypted on the Rust side; the page only ever sees names, never the stored passwords.
@@ -2400,6 +2506,7 @@ const applySettings = (s) => {
   st.calendar = CALENDARS.includes(s.calendar) ? s.calendar : 'gregorian';
   st.face = s.face === 'clock' ? 'clock' : 'eyes';
   face.dataset.eyes = EYE_STYLES.includes(s.eyeStyle) ? s.eyeStyle : 'round';
+  applyToolOrder(s.toolOrder);
   st.settings = s; st.lastUser = s.lastUser || '';
   if ((s.musicFolder || '') !== local.folder) { local.folder = s.musicFolder || ''; scanLocal(); }
   else if (st.stackOpen && st.stackKind === 'music') renderStack();

@@ -102,6 +102,15 @@ pub fn apply(key: &str, value: &Value) {
                 put(key, v.into());
             }
         }
+        "toolOrder" => {
+            // the pill's tool row, arranged by its owner (long-press a tool, drag it into place)
+            const TOOLS: [&str; 13] = ["track", "play", "screenshot", "ocr", "clips", "music", "notes", "vault", "speedo", "timer", "shelf", "inbox", "settings"];
+            if let Some(arr) = value.as_array() {
+                let mut seen = std::collections::HashSet::new();
+                let list: Vec<Value> = arr.iter().filter_map(|v| v.as_str()).filter(|k| TOOLS.contains(k) && seen.insert(*k)).map(|k| Value::from(k)).collect();
+                put(key, Value::Array(list));
+            }
+        }
         "skin" => {
             if let Some(v) = value.as_str().filter(|v| THEMES.contains(v)) {
                 put(key, v.into());

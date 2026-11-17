@@ -26,6 +26,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #island.tucked .view, #island.tucked #sky { opacity: 0 !important; transition: opacity .12s; }
 #glow.off { display: none; }
 #island.bump { animation: bump .5s var(--spring); }
+/* a due reminder: the pill turns the deep red of a cover and holds a pulsing glow until it is seen */
+#island.alerting { background: linear-gradient(180deg, #8e2320 0%, #6d130f 45%, #4a0a08 100%); box-shadow: 0 4px 18px rgba(0, 0, 0, .4), 0 0 42px rgba(255, 64, 32, .5), 0 0 110px rgba(255, 50, 20, .28), inset 0 0 0 1px rgba(255, 170, 140, .4); animation: alertpulse 1.5s ease-in-out infinite; }
+@keyframes alertpulse { 50% { box-shadow: 0 4px 18px rgba(0, 0, 0, .4), 0 0 64px rgba(255, 64, 32, .78), 0 0 140px rgba(255, 50, 20, .42), inset 0 0 0 1px rgba(255, 170, 140, .55); } }
 @keyframes bump { 30% { transform: translateX(-50%) scale(1.07, .96); } }
 #island.sky .view { text-shadow: 0 1px 3px rgba(0, 0, 0, .45); }
 #island.sky .dim, #island.sky #m-artist { color: rgba(255, 255, 255, .8); }
@@ -336,6 +339,9 @@ body.venom #island { box-shadow: none; }
 .eyeopt { height: 36px; border-radius: 12px; background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); display: grid; place-items: center; transition: transform .2s var(--spring), box-shadow .15s; }
 .eyeopt:hover { transform: scale(1.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45); }
 .eyeopt.on { box-shadow: inset 0 0 0 2px #a98bff; }
+/* arranging the tool row (hold a tool 3 s): rings mark what can be dragged */
+.view[data-view="tools"].editing .ib { box-shadow: inset 0 0 0 1px rgba(169, 139, 255, .6); cursor: grab; }
+.view[data-view="tools"].editing .ib.drag { cursor: grabbing; z-index: 5; transition: none; box-shadow: 0 8px 20px rgba(0, 0, 0, .55), inset 0 0 0 1.5px #a98bff; }
 .eyepv { display: inline-flex; gap: 9px; align-items: center; height: 14px; zoom: 1.35; }
 .eyepv i { display: block; width: 7px; height: 11px; border-radius: 50%; background: #fff; animation: eyepv-blink 4.6s infinite; }
 @keyframes eyepv-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
