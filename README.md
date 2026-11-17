@@ -5,15 +5,15 @@
 **A tiny dynamic island for Windows.** One small pill at the top of your screen that shows what is playing,
 catches your notifications, remembers what you copied, holds your files, and blinks at you in between.
 
-[![release](https://img.shields.io/github/v/release/raminturne/peeky?label=release&color=555)](https://github.com/raminturne/peeky/releases/latest)
-[![downloads](https://img.shields.io/github/downloads/raminturne/peeky/total?label=downloads&color=555)](https://github.com/raminturne/peeky/releases)
-[![build](https://img.shields.io/github/actions/workflow/status/raminturne/peeky/build.yml?branch=main&label=build)](https://github.com/raminturne/peeky/actions/workflows/build.yml)
+[![release](https://img.shields.io/github/v/release/ppourya4-design/poyzen?label=release&color=555)](https://github.com/ppourya4-design/poyzen/releases/latest)
+[![downloads](https://img.shields.io/github/downloads/ppourya4-design/poyzen/total?label=downloads&color=555)](https://github.com/ppourya4-design/poyzen/releases)
+[![build](https://img.shields.io/github/actions/workflow/status/ppourya4-design/poyzen/build.yml?branch=main&label=build)](https://github.com/ppourya4-design/poyzen/actions/workflows/build.yml)
 ![size](https://img.shields.io/badge/size-~3%20MB-555)
 [![license](https://img.shields.io/badge/license-MIT-555)](LICENSE)
 
-[![Windows installer](https://img.shields.io/badge/WINDOWS-INSTALLER-0a7cd6?style=for-the-badge)](https://github.com/raminturne/peeky/releases/latest/download/Peeky-Setup.exe)
-[![Windows portable exe](https://img.shields.io/badge/WINDOWS-PORTABLE%20.EXE-1f2328?style=for-the-badge)](https://github.com/raminturne/peeky/releases/latest/download/Poyzen-Portable.exe)
-[![Windows zip](https://img.shields.io/badge/WINDOWS-.ZIP-1f2328?style=for-the-badge)](https://github.com/raminturne/peeky/releases/latest/download/Poyzen-Windows.zip)
+[![Windows installer](https://img.shields.io/badge/WINDOWS-INSTALLER-0a7cd6?style=for-the-badge)](https://github.com/ppourya4-design/poyzen/releases/latest/download/Poyzen-Setup.exe)
+[![Windows portable exe](https://img.shields.io/badge/WINDOWS-PORTABLE%20.EXE-1f2328?style=for-the-badge)](https://github.com/ppourya4-design/poyzen/releases/latest/download/Poyzen-Portable.exe)
+[![Windows zip](https://img.shields.io/badge/WINDOWS-.ZIP-1f2328?style=for-the-badge)](https://github.com/ppourya4-design/poyzen/releases/latest/download/Poyzen-Windows.zip)
 
 [فارسی](#فارسی)
 
@@ -49,7 +49,7 @@ And also:
 
 ## Install
 
-Download **[Peeky-Setup.exe](https://github.com/raminturne/peeky/releases/latest/download/Peeky-Setup.exe)** and run it.
+Download **[Peeky-Setup.exe](https://github.com/ppourya4-design/poyzen/releases/latest/download/Poyzen-Setup.exe)** and run it.
 It installs for the current user only (no administrator prompt) and starts with Windows; both can be changed in the settings.
 
 Windows 10 or 11 with the WebView2 runtime (already part of Windows 11 and of current Windows 10).
@@ -110,7 +110,7 @@ Windows today. A Linux version is being worked on; the backend talks to Windows 
 
 ### نصب
 
-فایل **[Peeky-Setup.exe](https://github.com/raminturne/peeky/releases/latest/download/Peeky-Setup.exe)** را دانلود و اجرا کن.
+فایل **[Peeky-Setup.exe](https://github.com/ppourya4-design/poyzen/releases/latest/download/Poyzen-Setup.exe)** را دانلود و اجرا کن.
 فقط برای کاربر فعلی نصب می‌شود و دسترسی ادمین نمی‌خواهد.
 
 ### حریم خصوصی
