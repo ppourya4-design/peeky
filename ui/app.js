@@ -1794,6 +1794,9 @@ function drawIris(t, dt, on) {
   f.strokeStyle = gr; f.lineWidth = 2.6; pillPath(f, x, y, w, h, 0.2, 0, 0, 0); f.stroke();               // the ring (its inner half hides under the pill)
 }
 PAINT.iris = (g, t, dt, x0, x1, W, A) => {
+  // his edit (2.1.25): Iris is only the rainbow ring around the pill — like the default theme, the inside
+  // takes the playing cover's colours while music plays; at rest it falls back to the dark wash below.
+  if (st.media.playing && musicOn()) { paintSky(g, t, dt, x0, x1, W, A); return; }
   const gr = irisGrad(g, x0, x1, t);
   g.save(); g.globalAlpha = A * clamp(0.22 + energy * 0.5 + bass * 0.2, 0, 0.8);        // colour rising from the bottom edge
   g.fillStyle = gr; g.fillRect(x0, 0, W, SKY_H);
