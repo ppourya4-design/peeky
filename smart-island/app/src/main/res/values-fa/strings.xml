@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Smart Island (2026)
+  © Animesh Gupta — github.com/agupta07505
+  Licensed under the GNU GPL v3 License
+  Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+
+  Persian (fa) overlay added for Peeky Island: the ~30 most visible
+  setup / permissions / onboarding strings. Everything else falls back
+  to the default (English) resources.
+-->
+<resources>
+    <string name="app_name">Peeky Island</string>
+    <string name="app_subtitle">جزیره‌ی پویای شناور</string>
+    <string name="accessibility_service_label">سرویس پیکی آیلند</string>
+    <string name="accessibility_service_description">به پیکی آیلند اجازه می‌ده روی نوار وضعیت قرار بگیره تا بتونی کپسول دور دوربین رو بدون تداخل لمسی لمس کنی.</string>
+    <string name="grant_accessibility">برای شروع شناور روی نوار وضعیت، دسترسی دسترسی‌پذیری (Accessibility) رو بده</string>
+    <string name="master_switch_missing_desc">دسترسی‌های لازم داده نشده</string>
+    <string name="status_setup_needed">نیاز به راه‌اندازی</string>
+    <string name="btn_grant_required_permissions">دادن دسترسی‌ها</string>
+    <string name="enable_smart_island">فعال‌کردن پیکی آیلند</string>
+    <string name="overlay_ready">سرویس شناور آماده‌ست</string>
+    <string name="grant_overlay">برای شروع، دسترسی نمایش روی برنامه‌ها رو بده</string>
+    <string name="sec_permissions">دسترسی‌ها</string>
+    <string name="sec_permissions_desc">وضعیت نمایش روی برنامه‌ها، دسترسی نوتیفیکیشن و هشدارهای سیستم</string>
+    <string name="card_permissions_setup_title">دسترسی‌ها</string>
+    <string name="card_permissions_setup_desc">دسترسی‌پذیری، دسترسی نوتیفیکیشن و باتری</string>
+    <string name="card_permissions_setup_status_all">همه داده شده</string>
+    <string name="detail_title_permissions_center">مرکز دسترسی‌ها و راه‌اندازی</string>
+    <string name="perm_accessibility_title">شناور دسترسی‌پذیری</string>
+    <string name="perm_accessibility_desc">به پیکی آیلند اجازه می‌ده به‌صورت پویا بالای نوار وضعیت و ناحیه‌ی ناچ شناور بمونه</string>
+    <string name="perm_notification_title">دسترسی نوتیفیکیشن</string>
+    <string name="perm_notification_desc">پیام‌ها، تماس‌ها، اطلاعات موزیک و هشدارهای زنده‌ی رهگیری رو می‌خونه</string>
+    <string name="perm_battery_title">رد شدن از بهینه‌سازی باتری</string>
+    <string name="perm_battery_desc">جلوی اندروید و قاتل‌های پس‌زمینه‌ی سازنده‌ها رو می‌گیره تا سرویس‌های پس‌زمینه بسته نشن</string>
+    <string name="perm_status_granted">داده شده</string>
+    <string name="btn_grant">دادن دسترسی</string>
+    <string name="settings_overview_desc">رفتارهای جزیره، رنگ‌ها، ژست‌ها و دسترسی‌های سیستم رو تنظیم کن</string>
+    <string name="system_diagnostics_desc">دسترسی‌ها و سلامت</string>
+    <string name="diag_accessibility">دسترسی‌پذیری</string>
+    <string name="diag_battery_saver">صرفه‌جویی باتری</string>
+    <string name="mode_battery_charge">باتری</string>
+</resources>

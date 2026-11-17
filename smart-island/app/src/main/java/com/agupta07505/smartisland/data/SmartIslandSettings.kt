@@ -418,7 +418,7 @@ data class SmartIslandSettings(
     fun toJson(appVersion: String = ""): String {
         val root = JSONObject()
         root.put("formatVersion", BACKUP_FORMAT_VERSION)
-        root.put("app", "com.agupta07505.smartisland")
+        root.put("app", "ir.poyzo.peekyisland")
         if (appVersion.isNotBlank()) {
             root.put("appVersion", appVersion)
         }
@@ -739,7 +739,7 @@ data class SmartIslandSettings(
     )
 
     companion object {
-        const val DEFAULT_ACCENT_COLOR = 0xFF4A8CFFL
+        const val DEFAULT_ACCENT_COLOR = 0xFF74E5FFL
 
         const val EXPANDED_THEME_DARK = "dark"
         const val EXPANDED_THEME_LIGHT = "light"
