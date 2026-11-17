@@ -223,6 +223,7 @@ function paintState() {
   $('#seek').classList.toggle('off', !(P.on && S.dur > 0));
   if (window.Aurora) window.Aurora.state({ pal: null, look: 'black', playing: S.playing });
   markNow();
+  pushMedia();
 }
 function setSession() {
   try {
@@ -240,6 +241,61 @@ function saveResume(posMs) {
   if (!tr) return;
   lsSet('peeky.mob.resume', { path: tr.path, pos: Math.round(posMs != null ? posMs : audio.currentTime * 1000) || 0 });
 }
+
+// ------------------------------------------------------------ media notification (tauri-plugin-media)
+// The native foreground service renders the notification + media session from what we push here;
+// its buttons come back through a Channel registered as the plugin's "media-action" listener.
+function coverPngOf(b64) {
+  return new Promise((res) => {
+    if (!b64) return res(null);
+    const img = new Image();
+    img.onload = () => { try { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); const s = Math.min(img.width, img.height); g.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 256, 256); res(c.toDataURL('image/png').split(',')[1]); } catch { res(null); } };
+    img.onerror = () => res(null);
+    img.src = 'data:' + imgMime(b64) + ';base64,' + b64;
+  });
+}
+const mediaInvoke = (c, a) => { try { return call('plugin:media|' + c, a).catch(() => {}); } catch { return Promise.resolve(); } };
+let mediaOn = false, mediaCoverKey = null, mediaCoverPng = null, mediaBusy = false, mediaAgain = false;
+function pushMedia() {
+  if (mediaBusy) { mediaAgain = true; return; }
+  mediaBusy = true;
+  (async () => {
+    if (!P.on) {
+      if (mediaOn) { mediaOn = false; mediaCoverKey = null; mediaCoverPng = null; await mediaInvoke('stop'); }
+      return;
+    }
+    mediaOn = true;
+    const key = P.cover ? (P.title + '\u0001' + P.artist) : '';
+    let cover = null;
+    if (key !== mediaCoverKey) {           // the (heavy) PNG only travels when the cover changes
+      mediaCoverKey = key;
+      mediaCoverPng = key ? await coverPngOf(P.cover) : null;
+      cover = mediaCoverPng;
+    }
+    await mediaInvoke('update', {
+      title: P.title || '', artist: P.artist || '', playing: S.playing,
+      durationMs: Math.round(S.dur || 0), positionMs: Math.round((audio.currentTime || 0) * 1000),
+      hasNext: P.list.length > 1, hasPrev: P.list.length > 1,
+      cover, coverKey: key,
+    });
+  })().then(() => { mediaBusy = false; if (mediaAgain) { mediaAgain = false; pushMedia(); } });
+}
+try {
+  const Ch = window.__TAURI__.core.Channel;
+  if (Ch) {
+    const ch = new Ch();
+    ch.onmessage = (m) => {
+      const a = m && m.action;
+      if (a === 'play') { if (!P.on) toggle(); else if (audio.paused) audio.play().catch(() => {}); }
+      else if (a === 'pause') { if (!audio.paused) audio.pause(); }
+      else if (a === 'next') next();
+      else if (a === 'prev') prev();
+      else if (a === 'seek' && m.positionMs != null && isFinite(m.positionMs)) { audio.currentTime = clamp(m.positionMs / 1000, 0, (S.dur || 0) / 1000); pushMedia(); }
+      else if (a === 'stop') { audio.pause(); }
+    };
+    call('plugin:media|register_listener', { event: 'media-action', handler: ch }).catch(() => {});
+  }
+} catch { /* plugin not present (e.g. a desktop preview) — the player still works */ }
 
 async function playTrack(i, autoplay = true, resumePos = 0) {
   const n = P.list.length;
@@ -313,7 +369,8 @@ audio.addEventListener('pause', () => { paintState(); saveResume(); });
 audio.addEventListener('loadedmetadata', () => { S.dur = isFinite(audio.duration) ? audio.duration * 1000 : 0; paintState(); });
 audio.addEventListener('error', () => { if (P.on && !P.loading && audio.src) failTrack(); });
 setInterval(() => { if (P.on && !audio.paused) saveResume(); }, 5000);
-document.addEventListener('visibilitychange', () => { if (document.hidden) saveResume(); });
+setInterval(() => { if (P.on && !audio.paused) pushMedia(); }, 4000);   // keep the notification's position fresh
+document.addEventListener('visibilitychange', () => { if (document.hidden) { saveResume(); pushMedia(); } });
 
 $('#c-play').addEventListener('click', toggle);
 $('#c-next').addEventListener('click', next);
@@ -344,12 +401,12 @@ vt.addEventListener('pointercancel', () => { volDrag = false; });
 $('#vmute').addEventListener('click', () => { audio.muted = !audio.muted; paintVol(); });
 
 // ------------------------------------------------------------ the list
-let query = '', shown = 200, matches = [], lastIdx = -2;
+let query = '', shown = 60, matches = [], lastIdx = -2;
 function applyFilter() {
   const q = query.trim().toLowerCase();
   matches = [];
   for (let i = 0; i < P.list.length; i++) if (!q || (P.list[i].title + ' ' + P.list[i].artist).toLowerCase().includes(q)) matches.push(i);
-  shown = 200; lastIdx = -2; renderList();
+  shown = 60; lastIdx = -2; renderList();
 }
 function rowFor(i) {
   const tr = P.list[i];
@@ -383,7 +440,7 @@ function updateRow(i) {
 $('#list').addEventListener('scroll', () => {
   const l = $('#list');
   if (shown >= matches.length || l.scrollTop + l.clientHeight < l.scrollHeight - 120) return;
-  const from = shown; shown = Math.min(matches.length, from + 200);
+  const from = shown; shown = Math.min(matches.length, from + 80);
   for (let k = from; k < shown; k++) l.appendChild(rowFor(matches[k]));
 });
 function keepInView(row) {
@@ -417,16 +474,20 @@ async function indexOne(i, gen) {
   if (tags.title || tags.artist) { tagCache[tr.path] = [tr.title, tr.artist]; saveTagCache(); }
   if (tags.cover) { tr.coverB64 = tags.cover; tr.thumb = await thumbOf(tags.cover); if (tr.thumb) changed = true; }
   if (!changed || gen !== P.scanGen) return;
-  if (P.idx === i) { P.title = tr.title; P.artist = tr.artist; if (!P.cover && tr.coverB64) P.cover = tr.coverB64; paintState(); }
+  if (P.idx === i) { P.title = tr.title; P.artist = tr.artist; if (!P.cover && tr.coverB64) P.cover = tr.coverB64; paintState(); feedAurora(); }
   updateRow(i);
 }
 async function indexTags(gen) {
   const queue = P.list.map((tr, i) => i).filter((i) => !P.list[i].tagged);
-  let active = 0, at = 0;
+  let active = 0, at = 0, launched = 0;
   await new Promise((done) => {
     const step = () => {
       if (gen !== P.scanGen) return done();
-      while (active < 2 && at < queue.length) { const i = queue[at++]; active++; indexOne(i, gen).then(() => { active--; step(); }); }
+      while (active < 2 && at < queue.length) {
+        const i = queue[at++]; active++; launched++;
+        // every few files, hand the main thread back so first paint and scrolling stay smooth
+        indexOne(i, gen).then(() => { active--; if (launched % 6 === 0) setTimeout(step, 0); else step(); });
+      }
       if (at >= queue.length && !active) done();
     };
     step();
@@ -453,30 +514,42 @@ async function scan() {
 $('#rescan').addEventListener('click', () => scan());
 
 // ------------------------------------------------------------ waveform seek bar (from player.js)
+// The bars are static per song: they are painted once into two offscreen canvases (dim + lit)
+// at devicePixelRatio; each frame only blits the dim layer plus the played slice of the lit one.
 const wvEl = $('#wave'), wvx = wvEl.getContext('2d');
-let wvKey = null, wvBars = [], wvW = 0, wvH = 0, wvN = 0, wvFilled = -1;
+const wvDim = document.createElement('canvas'), wvLit = document.createElement('canvas');
+let wvKey = null, wvBars = [], wvW = 0, wvH = 0, wvN = 0, wvFilled = -1, wvDpr = 1;
 function wvBuild(key, n) {
   let a = 2166136261; for (let i = 0; i < key.length; i++) { a ^= key.charCodeAt(i); a = Math.imul(a, 16777619); }
   const rnd = () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const p1 = rnd() * 6, p2 = rnd() * 6, f1 = .12 + rnd() * .1, f2 = .31 + rnd() * .2;
   wvBars = []; for (let i = 0; i < n; i++) wvBars.push(clamp((.5 + .28 * Math.sin(i * f1 + p1) + .18 * Math.sin(i * f2 + p2)) * (.6 + .4 * rnd()), .12, 1));
 }
+function wvPaintBase() {
+  const W = wvEl.width, H = wvEl.height, n = wvN, d = wvDpr, gap = 2 * d, bw = (W - (n - 1) * gap) / n;
+  for (const [cv, color] of [[wvDim, 'rgba(255,255,255,.28)'], [wvLit, '#fff']]) {
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    g.fillStyle = color;
+    for (let i = 0; i < n; i++) {
+      const bh = Math.max(3 * d, wvBars[i] * H), x = i * (bw + gap), y = (H - bh) / 2;
+      g.beginPath(); if (g.roundRect) g.roundRect(x, y, bw, bh, Math.min(bw / 2, 2 * d)); else g.rect(x, y, bw, bh); g.fill();
+    }
+  }
+}
 function drawWave(r) {
   const w = wvEl.clientWidth, h = wvEl.clientHeight; if (!w || !h) return;
   const key = S.on ? (S.title || '') + '\u0001' + (S.artist || '') : 'peeky', n = Math.max(8, Math.floor((w + 2) / 5)), dpr = window.devicePixelRatio || 1;
-  const resized = w !== wvW || h !== wvH;
-  if (resized) { wvW = w; wvH = h; wvEl.width = Math.round(w * dpr); wvEl.height = Math.round(h * dpr); }
-  if (key !== wvKey || n !== wvN) { wvKey = key; wvN = n; wvBuild(key, n); wvFilled = -1; }
+  if (w !== wvW || h !== wvH || dpr !== wvDpr) { wvW = w; wvH = h; wvDpr = dpr; wvEl.width = Math.round(w * dpr); wvEl.height = Math.round(h * dpr); wvKey = null; }
+  if (key !== wvKey || n !== wvN) { wvKey = key; wvN = n; wvBuild(key, n); wvPaintBase(); wvFilled = -1; }
   const filled = Math.floor(r * n + (r > 0 ? .5 : 0));
-  if (!resized && filled === wvFilled) return;
+  if (filled === wvFilled) return;
   wvFilled = filled;
-  wvx.setTransform(dpr, 0, 0, dpr, 0, 0); wvx.clearRect(0, 0, w, h);
-  const bw = (w - (n - 1) * 2) / n;
-  for (let i = 0; i < n; i++) {
-    const bh = Math.max(3, wvBars[i] * h), x = i * (bw + 2), y = (h - bh) / 2;
-    wvx.fillStyle = i < filled ? '#fff' : 'rgba(255,255,255,.28)';
-    wvx.beginPath(); if (wvx.roundRect) wvx.roundRect(x, y, bw, bh, Math.min(bw / 2, 2)); else wvx.rect(x, y, bw, bh); wvx.fill();
-  }
+  wvx.setTransform(1, 0, 0, 1, 0, 0);
+  wvx.clearRect(0, 0, wvEl.width, wvEl.height);
+  wvx.drawImage(wvDim, 0, 0);
+  const fx = Math.round((filled / n) * wvEl.width);
+  if (fx > 0) wvx.drawImage(wvLit, 0, 0, fx, wvEl.height, 0, 0, fx, wvEl.height);
 }
 let scrubbing = false, scrubR = 0;
 const seekEl = $('#seek');
@@ -485,7 +558,7 @@ seekEl.addEventListener('pointermove', (e) => { if (scrubbing) scrubR = ratio(se
 const seekEnd = (apply) => {
   if (!scrubbing) return;
   scrubbing = false; seekEl.classList.remove('drag');
-  if (apply && S.dur > 0) { audio.currentTime = (scrubR * S.dur) / 1000; saveResume(); }
+  if (apply && S.dur > 0) { audio.currentTime = (scrubR * S.dur) / 1000; saveResume(); pushMedia(); }
 };
 seekEl.addEventListener('pointerup', () => seekEnd(true));
 seekEl.addEventListener('pointercancel', () => seekEnd(false));
@@ -508,6 +581,7 @@ function lyrPill() {
   if (s === 'synced') p.classList.add('ok');
   if (s !== 'synced') tmEl.hidden = true;
   $('#tab-lyrics').classList.toggle('has', s === 'synced' || s === 'plain');
+  paintTrPill();
 }
 const mkWord = (txt) => { const w = document.createElement('span'); w.className = 'w'; w.textContent = txt; const f = document.createElement('span'); f.className = 'f'; f.textContent = txt; w.appendChild(f); return { el: w, f }; };
 const PAUSE = /[,;:.!?…،؛؟]$/, PAUSE_UNITS = 2.2;
@@ -557,8 +631,12 @@ function lyrRender() {
     rows.forEach(([t, text], i) => {
       const row = document.createElement('div'); row.className = 'ln' + (text ? '' : ' gap'); row.dataset.i = i;
       const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = t >= 0 ? fmt(t) : '';
-      const x = document.createElement('span'); x.className = 'x'; x.dir = 'auto';
-      if (s === 'synced' && WM !== 'line' && text) buildWords(x, rows, i); else x.textContent = text || '♪';
+      const x = document.createElement('span'); x.className = 'x';
+      const xl = document.createElement('span'); xl.className = 'xl'; xl.dir = 'auto';
+      if (s === 'synced' && WM !== 'line' && text) buildWords(xl, rows, i); else xl.textContent = text || '♪';
+      x.appendChild(xl);
+      const trt = TR.on && TR.lines ? TR.lines[i] : '';
+      if (trt && trt.trim() && trt !== text) { const td = document.createElement('span'); td.className = 'tr'; td.dir = 'rtl'; td.textContent = trt; x.appendChild(td); }
       if (t >= 0) row.append(tm, x); else row.append(x);
       row.style.setProperty('--d', 4);
       frag.appendChild(row); L.els.push(row);
@@ -572,7 +650,7 @@ function lyrRender() {
   else if (s === 'instr') lmsg.innerHTML = msgBox(I.note, 'Instrumental', 'This track has no lyrics.', false);
   else lmsg.innerHTML = msgBox(I.note, 'Nothing playing', 'Play a song to see its lyrics.', false);
 }
-function setLyr(state) { L.state = state; lyrPill(); lyrRender(); }
+function setLyr(state) { L.state = state; lyrPill(); lyrRender(); loopPos = -1; }
 function applyLyr(r) {
   L.data = r;
   const rd = r && r.dur > 0 && S.dur > 0 ? (S.dur / 1000) / r.dur : 1;      // a slowed / sped-up copy of the song: stretch the
@@ -582,6 +660,7 @@ function applyLyr(r) {
   else if (r.synced && r.synced.length) setLyr('synced');
   else if (r.plain) { r.plain = Array.isArray(r.plain) ? r.plain : Lyr.parsePlain(r.plain); setLyr('plain'); }
   else setLyr('none');
+  if (TR.on) trRun();
 }
 async function lyrSearch(tok) {
   try {
@@ -593,7 +672,7 @@ async function lyrSearch(tok) {
 function lyrTrack(force) {
   const key = lyrKey();
   if (key === L.key && !force) return;
-  L.key = key; L.tok++; clearTimeout(L.timer); L.data = null; L.off = key ? Lyr.store.offset(key) : 0;
+  L.key = key; L.tok++; TR.tok++; TR.lines = null; TR.failed = false; clearTimeout(L.timer); L.data = null; L.off = key ? Lyr.store.offset(key) : 0;
   if (!key) { setLyr('idle'); return; }
   const c = Lyr.store.get(key);
   if (c) { if (c.plain && !Array.isArray(c.plain)) c.plain = Lyr.parsePlain(c.plain); applyLyr(c); return; }
@@ -672,6 +751,85 @@ wmBtns.forEach((b) => b.addEventListener('click', () => {
 paintWm();
 document.addEventListener('pointerdown', (e) => { if (!tmEl.hidden && !e.target.closest('#timing, #lpill')) { tmEl.hidden = true; lpill.classList.remove('on'); } });
 
+// ------------------------------------------------------------ Persian translation of the lyrics (on demand, this track only)
+// Latin-script lines are sent to the free Google Translate endpoint in ≤1200-char chunks;
+// each translation renders as a small dim RTL line under its original. Already-Persian/Arabic
+// lyrics are left alone. Results are cached per track in localStorage.
+const TR = { on: !!lsGet('peeky.mob.tr', false), lines: null, key: '', tok: 0, busy: false, failed: false, skipped: false };
+const tpill = $('#tpill');
+const trCache = (() => { try { return JSON.parse(localStorage.getItem('peeky.tr.v1') || '{}'); } catch { return {}; } })();
+const hasFaScript = (s) => /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/.test(s);
+const hasLatin = (s) => /[A-Za-z]/.test(s);
+function paintTrPill() {
+  const usable = L.state === 'synced' || L.state === 'plain';
+  tpill.hidden = !usable;
+  tpill.classList.toggle('on', TR.on);
+  tpill.classList.toggle('bad', TR.on && TR.failed);
+  tpill.textContent = TR.busy ? 'ترجمه…' : 'ترجمه';
+  tpill.title = TR.failed ? "Couldn't translate — tap to turn off" : 'Persian translation under each line';
+}
+function lyrTexts() {
+  if (!L.data) return [];
+  if (L.state === 'synced') return L.data.synced.map((r) => r[1] || '');
+  if (L.state === 'plain') return (Array.isArray(L.data.plain) ? L.data.plain : []).map((t) => Array.isArray(t) ? (t[1] || '') : String(t || ''));
+  return [];
+}
+async function trFetchChunk(lines) {
+  const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=fa&dt=t&q=' + encodeURIComponent(lines.join('\n'));
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('http ' + r.status);
+  const j = await r.json();
+  return (j[0] || []).map((seg) => (seg && seg[0]) || '').join('').split('\n');
+}
+async function trRun() {
+  const guard = ++TR.tok;
+  const texts = lyrTexts();
+  const key = (S.title || '') + '\u0001' + (S.artist || '') + '\u0001' + Math.round((S.dur || 0) / 1000);
+  if (!texts.length) return;
+  if (key === TR.key && (TR.lines || TR.failed || TR.skipped)) return;
+  if (texts.some((t) => hasFaScript(t)) || !texts.some((t) => hasLatin(t))) { TR.key = key; TR.skipped = true; TR.lines = null; paintTrPill(); return; }
+  if (trCache[key]) { TR.key = key; TR.skipped = false; TR.failed = false; TR.lines = trCache[key]; paintTrPill(); lyrRender(); loopPos = -1; return; }
+  TR.busy = true; TR.failed = false; paintTrPill();
+  let requests = 0;
+  try {
+    const chunks = []; let cur = [], len = 0;
+    for (const t of texts) { const l = t.length + 1; if (len + l > 1200 && cur.length) { chunks.push(cur); cur = []; len = 0; } cur.push(t); len += l; }
+    if (cur.length) chunks.push(cur);
+    const out = [];
+    for (const chunk of chunks) {
+      let got = null;
+      if (requests < 60) { requests++; got = await trFetchChunk(chunk).catch(() => null); }
+      if (guard !== TR.tok) return;
+      if (!got || got.length !== chunk.length) {           // line count drifted: redo this chunk line by line
+        got = [];
+        for (const line of chunk) {
+          if (!line.trim() || line === '♪') { got.push(''); continue; }
+          if (requests >= 60) { got.push(''); continue; }
+          requests++;
+          const one = await trFetchChunk([line]).catch(() => null);
+          if (guard !== TR.tok) return;
+          got.push(one ? one.join(' ') : '');
+        }
+      }
+      out.push(...got);
+    }
+    texts.forEach((t, i) => { if (!t.trim() || t === '♪') out[i] = ''; });
+    TR.key = key; TR.skipped = false; TR.lines = out;
+    trCache[key] = out;
+    try { localStorage.setItem('peeky.tr.v1', JSON.stringify(trCache)); } catch { /* full or blocked */ }
+  } catch { if (guard === TR.tok) { TR.key = key; TR.failed = true; TR.lines = null; } }
+  if (guard !== TR.tok) return;
+  TR.busy = false; paintTrPill();
+  if (TR.lines) { lyrRender(); loopPos = -1; }
+}
+tpill.addEventListener('click', () => {
+  TR.on = !TR.on; lsSet('peeky.mob.tr', TR.on);
+  TR.failed = false;
+  paintTrPill();
+  if (TR.on) { TR.key = ''; trRun(); }
+  else { TR.tok++; TR.lines = null; lyrRender(); loopPos = -1; }
+});
+
 // ------------------------------------------------------------ views (tabs)
 const card = $('#card');
 function setTab(name) {
@@ -695,16 +853,20 @@ $('#tab-lyrics').addEventListener('click', () => setTab('lyrics'));
 $('#tab-list').addEventListener('click', () => setTab('list'));
 
 // ------------------------------------------------------------ the frame loop
+let loopPos = -1, loopSec = -1;
 (function loop() {
+  requestAnimationFrame(loop);
+  if (document.hidden) return;                       // nothing visible to paint; rAF throttles anyway
   const dur = isFinite(audio.duration) ? audio.duration * 1000 : 0;
   S.dur = dur;
   S.playing = P.on && !audio.paused && !audio.ended;
   const pos = scrubbing ? scrubR * dur : clamp(audio.currentTime * 1000 || 0, 0, dur || 0);
-  const r = dur > 0 ? pos / dur : 0;
-  drawWave(r);
+  if (!S.playing && !scrubbing && pos === loopPos) return;   // paused and unmoved: skip all repaint work
+  loopPos = pos;
+  drawWave(dur > 0 ? pos / dur : 0);
   lyrTick(pos);
-  $('#t-now').textContent = fmt(pos); $('#t-all').textContent = fmt(dur);
-  requestAnimationFrame(loop);
+  const sec = Math.floor(pos / 1000);
+  if (sec !== loopSec) { loopSec = sec; $('#t-now').textContent = fmt(pos); $('#t-all').textContent = fmt(dur); }
 })();
 
 // ------------------------------------------------------------ boot: scan, then cue the last track where he left it

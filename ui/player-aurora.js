@@ -47,24 +47,35 @@ function paletteFromImage(img, count = 3) {
     let best = -1, bw = 0.4;
     bins.forEach((b, k) => { if (b.w > bw && picked.every((p) => gap(p.h, k * 15 + 7) > 35)) { bw = b.w; best = k; } });
     if (best < 0) break;
-    const b = bins[best]; picked.push({ h: best * 15 + 7, rgb: [b.r / b.w, b.g / b.w, b.b / b.w] });
+    const b = bins[best]; picked.push({ h: best * 15 + 7, rgb: [b.r / b.w, b.g / b.w, b.b / b.w], w: b.w });
   }
-  if (!picked.length) return GRAPHITE;                                // a grey cover stays calm and grey
+  if (!picked.length) return { cols: GRAPHITE, shares: [.5, .3, .2] };   // a grey cover stays calm and grey
   const out = picked.map((p) => { const [hh, s, l] = hsl(...p.rgb); return rgbOf(hh, clamp(s, .55, .95), clamp(l, .42, .58)); });
+  const sum = picked.reduce((a, p) => a + p.w, 0) || 1;               // each real colour's share of the coloured mass,
+  const shares = picked.map((p) => p.w / sum);                        // normalised so the real colours sum to 1
   for (let i = 0; out.length < count; i++) {                          // a one-colour cover: neighbouring shades of it
-    const [hh, s, l] = hsl(...out[i % picked.length]); out.push(rgbOf((hh + 22 * (i + 1)) % 360, s, clamp(l + (i % 2 ? .08 : -.08), .35, .65)));
+    const [hh, s, l] = hsl(...picked[i % picked.length].rgb); out.push(rgbOf((hh + 22 * (i + 1)) % 360, s, clamp(l + (i % 2 ? .08 : -.08), .35, .65)));
+    shares.push(shares[i % picked.length] * .4);                      // a derived shade counts for less than its real colour
   }
-  return out.map((c) => `rgb(${c})`);
+  return { cols: out.map((c) => `rgb(${c})`), shares };
 }
 
 let haveCover = false, fallback = null;
-function apply(cols) { cols.slice(0, 3).forEach((c, i) => card.style.setProperty('--c' + (i + 1), c)); }
+function apply(cols, shares) {
+  const sh = shares && shares.length ? shares : [.5, .3, .2];
+  cols.slice(0, 3).forEach((c, i) => {
+    const s = sh[Math.min(i, sh.length - 1)];                         // a dominant colour gets a bigger, brighter blob;
+    card.style.setProperty('--c' + (i + 1), c);                       // a rare one stays small and faint
+    card.style.setProperty('--a' + (i + 1), (0.22 + 0.78 * s).toFixed(3));
+    card.style.setProperty('--s' + (i + 1), (0.55 + 1.15 * s).toFixed(3));
+  });
+}
 window.Aurora = {
   cover(b64) {                                                        // called with every new cover (base64 png, or nothing)
     haveCover = !!b64;
     if (!b64) { if (fallback) apply(fallback); return; }
     const img = new Image();
-    img.onload = () => { try { apply(paletteFromImage(img)); } catch { if (fallback) apply(fallback); } };
+    img.onload = () => { try { const p = paletteFromImage(img); apply(p.cols, p.shares); } catch { if (fallback) apply(fallback); } };
     img.src = `data:image/png;base64,${b64}`;
   },
   state(m) {                                                          // the pill's own three colours, used when a song has no cover
