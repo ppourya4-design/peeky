@@ -388,7 +388,7 @@ try {
       else if (a === 'ended') {
         NP.playing = false;
         if (P.on && P.shuffle) next();          // shuffle arms no next track: advance from here
-        else if (P.on) { P.on = false; paintState(); }
+        else if (P.on) { P.on = false; paintState(); mediaInvoke('stop'); }   // playlist over: notification goes away (v3 parity)
       }
       else if (a === 'error') { if (P.on && !P.loading) failTrack(); }
       else if (a === 'timer') { NP.sleepLeftMs = -1; paintSleep(); }
