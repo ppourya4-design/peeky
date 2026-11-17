@@ -20,8 +20,9 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT};
 use windows::Win32::UI::Shell::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-pub const APP_NAME: &str = "Peeky";
-pub const OLD_NAME: &str = "Qazi Island"; // what the app was called before 2.1: its data folder and autostart entry are taken over
+pub const APP_NAME: &str = "Poyzen";
+/// Earlier names, newest first: their data folders and autostart entries are taken over (Peeky until 2.1.11, Qazi Island before 2.1).
+pub const OLD_NAMES: [&str; 2] = ["Peeky", "Qazi Island"];
 
 pub static APP: OnceLock<AppHandle> = OnceLock::new();
 pub static DEBUG_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
@@ -89,14 +90,16 @@ pub fn data_dir() -> PathBuf {
         None => {
             let base = PathBuf::from(std::env::var_os("APPDATA").unwrap_or_default());
             let dir = base.join(APP_NAME);
-            let old = base.join(OLD_NAME);
-            if !dir.exists() && old.exists() {
-                let _ = std::fs::rename(&old, &dir); // settings, pins, notes and passwords move with the new name
+            let olds: Vec<PathBuf> = OLD_NAMES.iter().map(|n| base.join(n)).collect();
+            if !dir.exists() {
+                if let Some(old) = olds.iter().find(|o| o.exists()) {
+                    let _ = std::fs::rename(old, &dir); // settings, pins, notes and passwords move with the new name
+                }
             }
             // The new folder may already have been there (then nothing was renamed): bring over, once, whatever it lacks.
             static CARRY: std::sync::Once = std::sync::Once::new();
             CARRY.call_once(|| {
-                if old.exists() {
+                for old in olds.iter().filter(|o| o.exists()) {
                     let _ = std::fs::create_dir_all(&dir);
                     for name in ["notes.json", "vault.bin", "clips.json", "settings.json"] {
                         if !dir.join(name).exists() && old.join(name).exists() {
@@ -112,7 +115,7 @@ pub fn data_dir() -> PathBuf {
     dir
 }
 pub fn temp_dir() -> PathBuf {
-    std::env::temp_dir().join("PeekyShelf")
+    std::env::temp_dir().join("PoyzenShelf")
 }
 
 /// A small rolling log: only unusual things are written (a click that never arrived, a window sitting on top…).

@@ -12,6 +12,7 @@ use crate::sys;
 static SETTINGS: Mutex<Option<Map<String, Value>>> = Mutex::new(None);
 const THEMES: [&str; 10] = ["black", "nebula", "crystal", "ember", "reactor", "venom", "cloud", "water", "lava", "ice"];
 const BOOLS: [&str; 18] = ["autoUpdate", "musicReact", "netAlerts", "sensorDot", "smartCopy", "autoHide", "hideVideo", "copyPreview", "clipHistory", "deviceAlerts", "downloadAlerts", "shelf", "visuals", "noteHotkey", "vaultSymbols", "musicShuffle", "musicEnabled", "playerTheme"];
+const EYE_STYLES: [&str; 9] = ["round", "venom", "sleepy", "sad", "glow", "dot", "tall", "robot", "wide"];
 const CALENDARS: [&str; 4] = ["gregorian", "shamsi", "shamsi-fa", "both"];
 
 fn defaults() -> Map<String, Value> {
@@ -20,6 +21,7 @@ fn defaults() -> Map<String, Value> {
         "copyPreview": true, "clipHistory": true, "deviceAlerts": true, "downloadAlerts": true, "shelf": true, "visuals": true,
         "notifSeconds": 4,          // how long a notification stays on the pill
         "face": "eyes",             // what the resting pill shows: "eyes" or "clock"
+        "eyeStyle": "round",        // the shape of the eyes (any theme can wear any of them)
         "noteHotkey": true,         // Ctrl+Alt+N opens the quick note from anywhere
         "musicFolder": "",          // the folder the local player reads
         "musicShuffle": false,
@@ -95,6 +97,11 @@ pub fn apply(key: &str, value: &Value) {
                 put(key, v.into());
             }
         }
+        "eyeStyle" => {
+            if let Some(v) = value.as_str().filter(|v| EYE_STYLES.contains(v)) {
+                put(key, v.into());
+            }
+        }
         "skin" => {
             if let Some(v) = value.as_str().filter(|v| THEMES.contains(v)) {
                 put(key, v.into());
@@ -167,7 +174,9 @@ pub fn set_autostart(on: bool) {
 pub fn ensure_autostart() {
     if packaged() {
         unsafe {
-            let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, &HSTRING::from(RUN_KEY), &HSTRING::from(sys::OLD_NAME));
+            for old in sys::OLD_NAMES {
+                let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, &HSTRING::from(RUN_KEY), &HSTRING::from(old));
+            }
         }
     }
     if packaged() && get("autoStart") != Value::Bool(false) && !autostart_on() {

@@ -184,7 +184,7 @@ function wvBuild(key, n) {
 }
 function drawWave(r) {
   const w = wvEl.clientWidth, h = wvEl.clientHeight; if (!w || !h) return;      // hidden in lyrics view
-  const key = S.on ? (S.title || '') + '\u0001' + (S.artist || '') : 'peeky', n = Math.max(8, Math.floor((w + 2) / 5)), dpr = window.devicePixelRatio || 1;
+  const key = S.on ? (S.title || '') + '\u0001' + (S.artist || '') : 'poyzen', n = Math.max(8, Math.floor((w + 2) / 5)), dpr = window.devicePixelRatio || 1;
   const resized = w !== wvW || h !== wvH;
   if (resized) { wvW = w; wvH = h; wvEl.width = Math.round(w * dpr); wvEl.height = Math.round(h * dpr); }
   if (key !== wvKey || n !== wvN) { wvKey = key; wvN = n; wvBuild(key, n); wvFilled = -1; }
@@ -263,7 +263,7 @@ document.addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target
 // The Lyrics button turns the player into a lyrics view: small cover and title on top, the lyrics gliding with the song, ±10s buttons.
 var L = { on: false, key: '', tok: 0, state: 'idle', data: null, off: 0, active: -2, els: [], ws: [], wt: [], manual: 0, manualAt: 0, timer: 0 };
 // how the sung word shows: 'line' = the whole line lights up, 'fill' = every word fills as it is sung, 'pop' = the word lifts and lights up
-let WM = 'fill'; try { const m = localStorage.getItem('peeky.lyr.wm'); if (m === 'line' || m === 'fill' || m === 'pop') WM = m; } catch { /* default */ }
+let WM = 'fill'; try { const m = localStorage.getItem('poyzen.lyr.wm'); if (m === 'line' || m === 'fill' || m === 'pop') WM = m; } catch { /* default */ }
 const lyEl = $('#lyrics'), lnEl = $('#lines'), lmsg = $('#lmsg'), lpill = $('#lpill'), tmEl = $('#timing');
 const lyrKey = () => (S.on && S.title ? S.title + '\u0001' + (S.artist || '') : '');
 const offText = (ms) => (ms > 0 ? '+' : ms < 0 ? '−' : '') + (Math.abs(ms) / 1000).toFixed(1) + 's';
@@ -465,7 +465,7 @@ $('#t-reset').addEventListener('click', () => nudge(-L.off));
 // word animation: Line / Fill / Pop (kept for every song)
 const wmBtns = [...document.querySelectorAll('#wmseg button')], paintWm = () => wmBtns.forEach((b) => b.classList.toggle('on', b.dataset.m === WM));
 wmBtns.forEach((b) => b.addEventListener('click', () => {
-  WM = b.dataset.m; try { localStorage.setItem('peeky.lyr.wm', WM); } catch { /* not remembered */ }
+  WM = b.dataset.m; try { localStorage.setItem('poyzen.lyr.wm', WM); } catch { /* not remembered */ }
   paintWm(); lyrRender(); lyrScroll();
 }));
 paintWm();

@@ -1,13 +1,13 @@
-; Peeky — per-user, one-click installer. Run with /S it installs without showing anything (that is how updates arrive).
+; Poyzen — per-user, one-click installer. Run with /S it installs without showing anything (that is how updates arrive).
 Unicode true
-!define NAME "Peeky"
-!define EXE "Peeky.exe"
-!define UNKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Peeky"
+!define NAME "Poyzen"
+!define EXE "Poyzen.exe"
+!define UNKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Poyzen"
 !define RUN "Software\Microsoft\Windows\CurrentVersion\Run"
 
 Name "${NAME}"
 OutFile "..\dist\Peeky-Setup.exe"
-InstallDir "$LOCALAPPDATA\Programs\Peeky"
+InstallDir "$LOCALAPPDATA\Programs\Poyzen"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
 Icon "..\src-tauri\icons\icon.ico"
@@ -33,6 +33,13 @@ Section "Install"
   Sleep 800
   ; earlier versions (called Qazi Island) are replaced; their settings and pins are taken over by the app itself
   RMDir /r "$LOCALAPPDATA\Programs\qazi-island"
+  ; the same for the Peeky install this app grew out of (OutFile below stays Peeky-Setup.exe: the updater still fetches that name)
+  nsExec::Exec 'taskkill /F /T /IM "Peeky.exe"'
+  Pop $0
+  RMDir /r "$LOCALAPPDATA\Programs\Peeky"
+  Delete "$SMPROGRAMS\Peeky.lnk"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Peeky"
+  DeleteRegValue HKCU "${RUN}" "Peeky"
   RMDir /r "$LOCALAPPDATA\Programs\Qazi Island"
   Delete "$SMPROGRAMS\Qazi Island.lnk"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\d0c3e6a1-886d-5c4f-9c9e-ecc7654a4d1f"
@@ -40,7 +47,7 @@ Section "Install"
   DeleteRegValue HKCU "${RUN}" "Qazi Island"
 
   SetOutPath "$INSTDIR"
-  File "/oname=${EXE}" "..\src-tauri\target\release\peeky.exe"
+  File "/oname=${EXE}" "..\src-tauri\target\release\poyzen.exe"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateShortCut "$SMPROGRAMS\${NAME}.lnk" "$INSTDIR\${EXE}"
   WriteRegStr HKCU "${UNKEY}" "DisplayName" "${NAME}"

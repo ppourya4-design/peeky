@@ -9,7 +9,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const cv = document.getElementById('look'), g = cv.getContext('2d');
 
 // ---- what the pill tells us (see sendPlayer in app.js)
-let cfg = { look: 'black', pal: ['#3319a8', '#4c2bc4', '#6a42dc'], live: false, react: true, active: false };
+let cfg = { look: 'black', pal: ['hsl(222 9% 21%)', 'hsl(222 9% 29%)', 'hsl(222 9% 39%)'], live: false, react: true, active: false };
 const DEFAULT_PAL = cfg.pal.slice();
 
 // ---- size: the card, in css pixels; the canvas is drawn at the screen's pixel ratio

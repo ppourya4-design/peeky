@@ -227,13 +227,14 @@ body.venom .card { box-shadow: none; background: #000; }
 .shade { background: linear-gradient(180deg, rgba(5, 5, 8, .05) 0, rgba(5, 5, 8, .3) 38%, #060609 88%); }
 .card.aur-on:not(.skin) .aur, .card.aur-on:not(.skin) .shade { opacity: 1; }
 .card.aur-on:not(.skin) .pt-layer.on { opacity: .3; }            /* the default gradient stays underneath, quietly */
-.aur i { position: absolute; border-radius: 50%; filter: blur(46px); will-change: transform; transition: background-color 1.4s ease; }
-.aur .b1 { width: 300px; height: 300px; left: -80px; top: -100px; background-color: var(--c1, #6a42dc); opacity: .85; animation: aur1 13s ease-in-out infinite alternate; }
-.aur .b2 { width: 280px; height: 280px; right: -110px; top: 40px; background-color: var(--c2, #4c2bc4); opacity: .75; animation: aur2 17s ease-in-out infinite alternate; }
-.aur .b3 { width: 260px; height: 260px; left: 10px; top: 190px; background-color: var(--c3, #3319a8); opacity: .6; animation: aur3 21s ease-in-out infinite alternate; }
-@keyframes aur1 { to { transform: translate(90px, 60px) scale(1.25); } }
-@keyframes aur2 { to { transform: translate(-80px, 90px) scale(1.2); } }
-@keyframes aur3 { to { transform: translate(110px, -70px) scale(1.3); } }
+.aur { background: radial-gradient(130% 85% at 50% 18%, var(--base, rgba(62, 70, 88, .5)), transparent 78%); }   /* the main colour floods the ground, softly */
+.aur i { position: absolute; border-radius: 50%; filter: blur(54px); will-change: transform; }   /* colour, size and strength are set from JS by the cover's area shares */
+.aur .b1 { width: 320px; height: 320px; left: -70px; top: -90px; background-color: var(--c1, #3e4658); opacity: var(--o1, .85); scale: var(--s1, 1); animation: aur1 19s ease-in-out infinite; }
+.aur .b2 { width: 280px; height: 280px; right: -100px; top: 50px; background-color: var(--c2, #2f3646); opacity: var(--o2, .6); scale: var(--s2, 1); animation: aur2 25s ease-in-out infinite; }
+.aur .b3 { width: 250px; height: 250px; left: 20px; top: 200px; background-color: var(--c3, #232a38); opacity: var(--o3, .45); scale: var(--s3, 1); animation: aur3 31s ease-in-out infinite; }
+@keyframes aur1 { 0%, 100% { transform: translate(0, 0) rotate(0); } 33% { transform: translate(70px, 40px) rotate(18deg); } 66% { transform: translate(30px, 85px) rotate(-12deg); } }
+@keyframes aur2 { 0%, 100% { transform: translate(0, 0) rotate(0); } 33% { transform: translate(-60px, 70px) rotate(-16deg); } 66% { transform: translate(-25px, -20px) rotate(14deg); } }
+@keyframes aur3 { 0%, 100% { transform: translate(0, 0) rotate(0); } 33% { transform: translate(80px, -50px) rotate(20deg); } 66% { transform: translate(40px, -90px) rotate(-10deg); } }
 .card:not(.is-playing) .aur i { animation-play-state: paused; }   /* the colours rest while the music rests */
 @media (prefers-reduced-motion: reduce) { .aur .b1, .aur .b2, .aur .b3 { animation: none; } }
 .timing { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); background: rgba(14, 14, 18, .9); }   /* lyrics no longer ghost through the panel */

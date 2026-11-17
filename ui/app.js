@@ -125,7 +125,7 @@ function pickView() {
   if (st.manual) return st.manual;
   if (st.shelfOn && st.shelf.length) return 'held';      // held files stay on the pill until they are taken out
   const m = st.media;
-  if (musicOn() && !st.menuMode && (m.playing || now - st.pausedAt < 12000 || m.app === 'peeky')) return 'media';   // the built-in player keeps its view while it holds (up to the 60 s forget window in musicOn)
+  if (musicOn() && !st.menuMode && (m.playing || now - st.pausedAt < 12000 || m.app === 'poyzen')) return 'media';   // the built-in player keeps its view while it holds (up to the 60 s forget window in musicOn)
   if (st.hover && now - st.enteredAt > 130) return 'tools';
   if ((st.hover || now - st.leftAt < 380) && cur === 'tools') return 'tools';
   return 'idle';
@@ -618,7 +618,7 @@ $('#hd-menu').addEventListener('click', () => { setStack(false); st.manual = 'to
 $('#t-shelf').addEventListener('dragstart', (e) => { e.preventDefault(); window.qazi.shelfDrag(st.shelf.map((f) => f.path)); });
 
 // ------------------------------------------------------------ media
-const DEFAULT_PAL = ['#3319a8', '#4c2bc4', '#6a42dc'];     // violet night sky (deep enough that white text stays easy to read)
+const DEFAULT_PAL = ['hsl(222 9% 21%)', 'hsl(222 9% 29%)', 'hsl(222 9% 39%)'];     // no cover / nothing recognised: calm graphite grey (not violet)
 // Skins: animated surfaces the pill can wear. At rest they move slowly; with music they react to the sound.
 const THEMES = {
   nebula: { name: 'Nebula', pal: ['#7a1fd1', '#c0269a', '#ff4f9a'] },
@@ -732,7 +732,7 @@ function onMedia(m) {
   setIcon($('#b-play'), icon); setIcon($('#t-play'), icon);
   $('#t-play').classList.toggle('hidden', !st.media.active);
   $('#t-track').classList.toggle('hidden', !(st.menuMode && musicOn()));
-  $('#b-close').classList.toggle('hidden', !(m.active && m.app === 'peeky' && !m.playing));   // the x belongs to the built-in player, and only once it is paused
+  $('#b-close').classList.toggle('hidden', !(m.active && m.app === 'poyzen' && !m.playing));   // the x belongs to the built-in player, and only once it is paused
   render();
 }
 function setMenuMode(on) {
@@ -767,9 +767,9 @@ $('#b-close').addEventListener('click', dismissLocal);
 setArt(null);
 
 // ------------------------------------------------------------ volume HUD (scroll on the pill, or any system volume change)
-// While Peeky's own player is the one playing, every volume control (pill, player window) changes only Peeky's own volume
+// While Poyzen's own player is the one playing, every volume control (pill, player window) changes only Poyzen's own volume
 // (the audio element), never the Windows master volume. For any other player there is nothing else to turn, so those still use the system volume.
-local.vol = (() => { try { const v = parseInt(localStorage.getItem('peeky.vol'), 10); return v >= 0 && v <= 100 ? v : 100; } catch { return 100; } })();
+local.vol = (() => { try { const v = parseInt(localStorage.getItem('poyzen.vol'), 10); return v >= 0 && v <= 100 ? v : 100; } catch { return 100; } })();
 local.mute = false;
 const volOwn = () => local.on;
 const getVol = () => (volOwn() ? local.vol : st.vol), getMute = () => (volOwn() ? local.mute : st.mute);
@@ -777,7 +777,7 @@ function applyOwnVol() { local.audio.volume = clamp(local.vol / 100, 0, 1); loca
 applyOwnVol();
 function setVolLevel(v, delay) {
   v = clamp(Math.round(v), 0, 100);
-  if (volOwn()) { local.vol = v; local.mute = false; applyOwnVol(); try { localStorage.setItem('peeky.vol', String(v)); } catch { /* not remembered */ } return; }
+  if (volOwn()) { local.vol = v; local.mute = false; applyOwnVol(); try { localStorage.setItem('poyzen.vol', String(v)); } catch { /* not remembered */ } return; }
   st.vol = v; st.mute = false;
   if (!volSendT) volSendT = setTimeout(() => { volSendT = 0; window.qazi.setVolume(st.vol / 100); }, delay);
 }
@@ -1003,11 +1003,11 @@ function tagsOf(buf, ext) { const e = (ext || '').toLowerCase(); return e === 'm
 // --- the list learns the real names: a quiet background pass reads each track's tag (only its first
 // bytes cross over, via musicHead) and fills in title, artist and a small cover thumb per row.
 // Names are cached across runs; thumbs live for the session.
-const tagCache = (() => { try { return JSON.parse(localStorage.getItem('peeky.tags.v1') || '{}'); } catch { return {}; } })();
+const tagCache = (() => { try { return JSON.parse(localStorage.getItem('poyzen.tags.v1') || '{}'); } catch { return {}; } })();
 let tagSaveAt = 0;
 function saveTagCache() {
   const now = Date.now(); if (now - tagSaveAt < 2500) return; tagSaveAt = now;
-  try { localStorage.setItem('peeky.tags.v1', JSON.stringify(tagCache)); } catch { /* full or blocked: this session still knows */ }
+  try { localStorage.setItem('poyzen.tags.v1', JSON.stringify(tagCache)); } catch { /* full or blocked: this session still knows */ }
 }
 const imgMime = (b64) => b64.startsWith('/9j/') ? 'image/jpeg' : b64.startsWith('iVBOR') ? 'image/png' : b64.startsWith('R0lGOD') ? 'image/gif' : b64.startsWith('UklGR') ? 'image/webp' : 'image/jpeg';
 function thumbOf(b64) {            // a 56px square jpeg data url from a full-size cover, small enough to ride along with the list
@@ -1061,7 +1061,7 @@ function pushLocal() {
   const dur = isFinite(a.duration) ? Math.round(a.duration * 1000) : 0;
   onMedia({
     t: 'media', active: true, title: m.title || '', artist: m.artist || '', playing: local.loading || !a.paused, kind: 'Music',
-    canSeek: dur > 0, pos: Math.round(a.currentTime * 1000), dur, app: 'peeky', key: 'local|' + (tr ? tr.path : ''),
+    canSeek: dur > 0, pos: Math.round(a.currentTime * 1000), dur, app: 'poyzen', key: 'local|' + (tr ? tr.path : ''),
   });
 }
 setInterval(() => {
@@ -2218,7 +2218,7 @@ function renderSpeedo() {
 
 // ------------------------------------------------------------ settings, as rows under the pill
 const SETTINGS_UI = [
-  ['button', 'tour', 'What Peeky can do', 'Show me'],
+  ['button', 'tour', 'What Poyzen can do', 'Show me'],
   ['button', 'music', 'Local music', 'Open'],
   ['toggle', 'musicEnabled', 'Music player'],
   ['toggle', 'autoStart', 'Start with Windows'],
@@ -2227,6 +2227,7 @@ const SETTINGS_UI = [
   ['seg', 'calendar', 'Date', [['gregorian', 'Greg.'], ['shamsi', 'Shamsi'], ['shamsi-fa', 'شمسی'], ['both', 'Both']]],
   ['toggle', 'autoHide', 'Hide while a window is underneath'],
   ['toggle', 'hideVideo', 'Stay out of the way for videos'],
+  ['eyes', 'eyeStyle', 'Eye style'],
   ['swatch', 'skin', 'Theme', ['black', 'nebula', 'crystal', 'ember', 'reactor', 'venom']],        // cloud, water, lava and ice are parked until they are finished
   ['toggle', 'musicReact', 'Theme reacts to music'],
   ['toggle', 'visuals', 'Night sky with music (black theme)'],
@@ -2243,6 +2244,7 @@ const SETTINGS_UI = [
   ['toggle', 'smartCopy', 'Smart copy: links, sums, dates'],
   ['toggle', 'noteHotkey', 'Ctrl+Alt+N note · Ctrl+Alt+T text grab'],
 ];
+const EYE_STYLES = ['round', 'venom', 'sleepy', 'sad', 'glow', 'dot', 'tall', 'robot', 'wide'];   // drawn in style.css, picked in Settings
 function renderSettings() {
   $('#stack-clear').classList.add('hidden');
   const s = st.settings || {};
@@ -2274,6 +2276,17 @@ function renderSettings() {
         box.appendChild(bt);
       }
       row.append(name, box);
+    } else if (type === 'eyes') {
+      row.classList.add('eyes');
+      const now = EYE_STYLES.includes(s[key]) ? s[key] : 'round';
+      const grid = document.createElement('div'); grid.className = 'eyegrid';
+      for (const id of EYE_STYLES) {
+        const bt = document.createElement('button'); bt.className = 'eyeopt' + (id === now ? ' on' : ''); bt.title = id;
+        const pv = document.createElement('span'); pv.className = 'eyepv'; pv.dataset.eyes = id; pv.innerHTML = '<i></i><i></i>';
+        bt.appendChild(pv); bt.addEventListener('click', () => window.qazi.setSetting(key, id));
+        grid.appendChild(bt);
+      }
+      row.appendChild(grid);
     } else if (type === 'step') {
       const cur = clamp(Number(s[key]) || a, a, b);
       const mk = (icon, d) => { const bt = document.createElement('button'); bt.className = 'ib small'; bt.innerHTML = svg(icon); bt.addEventListener('click', () => window.qazi.setSetting(key, clamp(cur + d, a, b))); return bt; };
@@ -2286,7 +2299,7 @@ function renderSettings() {
     stackList.appendChild(row);
   });
   const info = document.createElement('div'); info.className = 'row set info';
-  info.textContent = (s.appName || 'Peeky') + ' ' + (s.version || '');
+  info.textContent = (s.appName || 'Poyzen') + ' ' + (s.version || '');
   const up = document.createElement('button'); up.className = 'go'; up.textContent = st.update ? 'Install ' + st.update : 'Check for updates';
   up.addEventListener('click', async () => {
     if (st.update) { window.qazi.updateInstall(); return; }
@@ -2298,7 +2311,7 @@ function renderSettings() {
   info.appendChild(up);
   stackList.appendChild(info);
 }
-// What Peeky can do: one row per feature, under the pill. A click on a row tries the thing itself.
+// What Poyzen can do: one row per feature, under the pill. A click on a row tries the thing itself.
 const TOUR = [
   ['note', 'Now playing', 'Play something: cover, title and controls appear here'],
   ['bell', 'Notifications', 'One line on the pill. Click it to open that chat', 'inbox'],
@@ -2386,6 +2399,7 @@ const applySettings = (s) => {
   if (s.netAlerts === false) { st.net = { online: true, vpn: '', proxy: false }; paintStatus(); }
   st.calendar = CALENDARS.includes(s.calendar) ? s.calendar : 'gregorian';
   st.face = s.face === 'clock' ? 'clock' : 'eyes';
+  face.dataset.eyes = EYE_STYLES.includes(s.eyeStyle) ? s.eyeStyle : 'round';
   st.settings = s; st.lastUser = s.lastUser || '';
   if ((s.musicFolder || '') !== local.folder) { local.folder = s.musicFolder || ''; scanLocal(); }
   else if (st.stackOpen && st.stackKind === 'music') renderStack();
@@ -2402,7 +2416,7 @@ const applySettings = (s) => {
   if (!s.toured && !toured) {        // the first start: say hello and offer the list of what it can do
     toured = true;
     setTimeout(() => {
-      showNotif({ app: 'Welcome', title: "Hi, I'm Peeky", body: 'Click to see what I can do', action: 'tour', long: true });
+      showNotif({ app: 'Welcome', title: "Hi, I'm Poyzen", body: 'Click to see what I can do', action: 'tour', long: true });
       window.qazi.setSetting('toured', true);
     }, 1800);
   }

@@ -1,6 +1,6 @@
 <div align="center">
 
-# Peeky
+# Poyzen
 
 **A tiny dynamic island for Windows.** One small pill at the top of your screen that shows what is playing,
 catches your notifications, remembers what you copied, holds your files, and blinks at you in between.
@@ -12,12 +12,12 @@ catches your notifications, remembers what you copied, holds your files, and bli
 [![license](https://img.shields.io/badge/license-MIT-555)](LICENSE)
 
 [![Windows installer](https://img.shields.io/badge/WINDOWS-INSTALLER-0a7cd6?style=for-the-badge)](https://github.com/raminturne/peeky/releases/latest/download/Peeky-Setup.exe)
-[![Windows portable exe](https://img.shields.io/badge/WINDOWS-PORTABLE%20.EXE-1f2328?style=for-the-badge)](https://github.com/raminturne/peeky/releases/latest/download/Peeky-Portable.exe)
-[![Windows zip](https://img.shields.io/badge/WINDOWS-.ZIP-1f2328?style=for-the-badge)](https://github.com/raminturne/peeky/releases/latest/download/Peeky-Windows.zip)
+[![Windows portable exe](https://img.shields.io/badge/WINDOWS-PORTABLE%20.EXE-1f2328?style=for-the-badge)](https://github.com/raminturne/peeky/releases/latest/download/Poyzen-Portable.exe)
+[![Windows zip](https://img.shields.io/badge/WINDOWS-.ZIP-1f2328?style=for-the-badge)](https://github.com/raminturne/peeky/releases/latest/download/Poyzen-Windows.zip)
 
 [فارسی](#فارسی)
 
-<img src="docs/hero.jpg" width="860" alt="Peeky resting at the top of the desktop">
+<img src="docs/hero.jpg" width="860" alt="Poyzen resting at the top of the desktop">
 
 </div>
 
@@ -35,7 +35,7 @@ catches your notifications, remembers what you copied, holds your files, and bli
 - **Timer.** Stays in sight while it runs, even over a fullscreen app.
 - **Settings inside the island.** No extra windows.
 
-On its first start Peeky says hello and shows a list of everything it can do; it stays in the settings under *What Peeky can do*. A click on a row tries the thing itself.
+On its first start Poyzen says hello and shows a list of everything it can do; it stays in the settings under *What Poyzen can do*. A click on a row tries the thing itself.
 And also:
 
 - **Quick notes.** `Ctrl+Alt+N` from anywhere, type one line, Enter. A time in the line (`call Ali in 20m`, `at 18:30 gym`, «۱۰ دقیقه دیگه چای») turns it into a reminder.
@@ -56,7 +56,7 @@ The installer is not code-signed, so Windows SmartScreen may ask once whether to
 
 ## Privacy
 
-Peeky makes no network requests except checking this repository for a new release (which can be switched off).
+Poyzen makes no network requests except checking this repository for a new release (which can be switched off).
 Notifications, clipboard contents, notes and passwords stay on your computer.
 
 ## Build it yourself
@@ -66,7 +66,7 @@ cd src-tauri
 cargo build --release
 ```
 
-The result is a single `peeky.exe` (about 5 MB). The installer is `installer/island.nsi` (NSIS).
+The result is a single `poyzen.exe` (about 5 MB). The installer is `installer/island.nsi` (NSIS).
 Every push is built by [GitHub Actions](.github/workflows/build.yml); a tag `vX.Y.Z` publishes a release.
 
 ## Platforms
@@ -84,7 +84,7 @@ Windows today. A Linux version is being worked on; the backend talks to Windows 
 
 ## فارسی
 
-**Peeky یک جزیرهٔ کوچک و زنده برای ویندوز است.** یک قرص کوچک بالای صفحه که آهنگ در حال پخش را نشان می‌دهد،
+**Poyzen یک جزیرهٔ کوچک و زنده برای ویندوز است.** یک قرص کوچک بالای صفحه که آهنگ در حال پخش را نشان می‌دهد،
 نوتیفیکیشن‌ها را می‌گیرد، چیزهایی که کپی کرده‌ای یادش می‌ماند، فایل‌هایت را نگه می‌دارد و بین این کارها پلک می‌زند.
 
 ### امکانات
@@ -101,7 +101,7 @@ Windows today. A Linux version is being worked on; the backend talks to Windows 
 - **رمزها:** رمز می‌سازد، سایت و ایمیل را می‌پرسد و ذخیره می‌کند (رمزنگاری‌شده با حساب ویندوز).
 - **خواندن متن از صفحه:** `Ctrl+Alt+T`، دور متن کادر بکش؛ انگلیسی و فارسی. همه‌چیز روی سیستم خودت انجام می‌شود.
 - **تایمر، تاریخچهٔ کپی با عکس، نشانگر میکروفون و دوربین، وضعیت اینترنت و VPN.**
-- **راهنمای داخل برنامه:** بار اول خودش فهرست قابلیت‌ها را نشان می‌دهد؛ بعداً از تنظیمات، «What Peeky can do».
+- **راهنمای داخل برنامه:** بار اول خودش فهرست قابلیت‌ها را نشان می‌دهد؛ بعداً از تنظیمات، «What Poyzen can do».
 - **آپدیت خودکار:** نسخهٔ جدید دانلود، با کلید پروژه بررسی و با یک کلیک نصب می‌شود.
 
 ### نصب
@@ -111,7 +111,7 @@ Windows today. A Linux version is being worked on; the backend talks to Windows 
 
 ### حریم خصوصی
 
-Peeky هیچ درخواست اینترنتی‌ای نمی‌فرستد، به‌جز بررسی همین مخزن برای نسخهٔ جدید (که می‌شود خاموشش کرد).
+Poyzen هیچ درخواست اینترنتی‌ای نمی‌فرستد، به‌جز بررسی همین مخزن برای نسخهٔ جدید (که می‌شود خاموشش کرد).
 نوتیفیکیشن‌ها، کلیپ‌بورد، یادداشت‌ها و رمزها روی سیستم خودت می‌مانند.
 
 </div>

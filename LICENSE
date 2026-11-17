@@ -21,6 +21,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ----
-Peeky ships with tesseract.js and tesseract.js-core (Apache License 2.0,
+Poyzen ships with tesseract.js and tesseract.js-core (Apache License 2.0,
 https://github.com/naptha/tesseract.js) and the Persian trained data of the
 Tesseract project (Apache License 2.0) in ui/ocr/.

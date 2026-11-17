@@ -337,7 +337,7 @@ async fn player_open(app: tauri::AppHandle) {
         return;
     }
     let mut wb = tauri::WebviewWindowBuilder::new(&app, "player", tauri::WebviewUrl::App("player.html".into()))
-        .title("Peeky Player")
+        .title("Poyzen Player")
         .inner_size(420.0, 560.0)
         .center()
         .decorations(false)

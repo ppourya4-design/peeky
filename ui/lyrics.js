@@ -89,7 +89,7 @@ async function find(title, artist, dur) {     // dur in seconds (0 = unknown)
 }
 
 // ---- cache (this window's own storage; the newest 150 songs are kept)
-const P = 'peeky.lyr.';
+const P = 'poyzen.lyr.';
 const store = {
   get(key) { try { return JSON.parse(localStorage.getItem(P + 'd.' + key)); } catch { return null; } },
   put(key, val) {

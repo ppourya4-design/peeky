@@ -27,7 +27,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #glow.off { display: none; }
 #island.bump { animation: bump .5s var(--spring); }
 @keyframes bump { 30% { transform: translateX(-50%) scale(1.07, .96); } }
-#island.sky .view { text-shadow: 0 1px 3px rgba(20, 0, 60, .45); }
+#island.sky .view { text-shadow: 0 1px 3px rgba(0, 0, 0, .45); }
 #island.sky .dim, #island.sky #m-artist { color: rgba(255, 255, 255, .8); }
 
 #glow {
@@ -310,13 +310,39 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #hd-more { font-size: 11px; font-weight: 600; padding: 0 2px; }
 #hd-more:empty { display: none; }
 
-/* ------------------------------------------------ venom: goo around the pill, slanted eyes */
+/* ------------------------------------------------ venom: goo around the pill (the eyes are chosen separately, see "eye styles") */
 #goo { position: absolute; top: 0; left: 50%; width: 700px; height: 96px; margin-left: -350px; pointer-events: none; filter: url(#goo-f); opacity: 0; transition: opacity .3s; }
 body.venom #island { box-shadow: none; }
-body.venom #i-face { gap: 6px; }
-body.venom #i-face i { width: 12px; height: 10px; border-radius: 0; clip-path: polygon(0 0, 100% 50%, 82% 100%, 12% 78%); }
-body.venom #i-face i:last-child { clip-path: polygon(100% 0, 0 50%, 18% 100%, 88% 78%); }
-body.venom #i-face.happy i, body.venom #i-face.sleepy i { border: 0; background: #fff; height: 5px; }
+/* ------------------------------------------------ eye styles: picked in Settings, independent of the theme.
+   The same rules draw the real face (#i-face) and the little previews in Settings (.eyepv). */
+#i-face[data-eyes="venom"], .eyepv[data-eyes="venom"] { gap: 6px; }
+#i-face[data-eyes="venom"] i, .eyepv[data-eyes="venom"] i { width: 12px; height: 10px; border-radius: 0; clip-path: polygon(0 0, 100% 50%, 82% 100%, 12% 78%); }
+#i-face[data-eyes="venom"] i:last-child, .eyepv[data-eyes="venom"] i:last-child { clip-path: polygon(100% 0, 0 50%, 18% 100%, 88% 78%); }
+/* sleepy: flat slanted lid, round bottom */
+#i-face[data-eyes="sleepy"] i, .eyepv[data-eyes="sleepy"] i { width: 8px; height: 9px; border-radius: 1px 1px 50% 50% / 1px 1px 70% 70%; clip-path: polygon(0 0, 100% 30%, 100% 100%, 0 100%); }
+#i-face[data-eyes="sleepy"] i:last-child, .eyepv[data-eyes="sleepy"] i:last-child { clip-path: polygon(0 30%, 100% 0, 100% 100%, 0 100%); }
+/* sad: the lid slopes the other way */
+#i-face[data-eyes="sad"] i, .eyepv[data-eyes="sad"] i { width: 8px; height: 9px; border-radius: 1px 1px 50% 50% / 1px 1px 70% 70%; clip-path: polygon(0 30%, 100% 0, 100% 100%, 0 100%); }
+#i-face[data-eyes="sad"] i:last-child, .eyepv[data-eyes="sad"] i:last-child { clip-path: polygon(0 0, 100% 30%, 100% 100%, 0 100%); }
+#i-face[data-eyes="glow"] i, .eyepv[data-eyes="glow"] i { width: 8px; height: 8px; box-shadow: 0 0 5px 1px rgba(255, 255, 255, .75); }
+#i-face[data-eyes="dot"] i, .eyepv[data-eyes="dot"] i { width: 5px; height: 5px; }
+#i-face[data-eyes="tall"] i, .eyepv[data-eyes="tall"] i { width: 4px; height: 13px; border-radius: 3px; }
+#i-face[data-eyes="robot"] i, .eyepv[data-eyes="robot"] i { width: 8px; height: 8px; border-radius: 2px; }
+#i-face[data-eyes="wide"] i, .eyepv[data-eyes="wide"] i { width: 11px; height: 6px; border-radius: 3px; }
+/* the moods stay the same whatever the eye style */
+#i-face[data-eyes].sleepy i { width: 9px; height: 3px; border-radius: 2px; clip-path: none !important; box-shadow: none; }
+#i-face[data-eyes].happy i { width: 10px; height: 6px; background: transparent; border: 2.4px solid #fff; border-bottom: 0; border-radius: 10px 10px 0 0; clip-path: none !important; box-shadow: none; }
+
+/* the picker row in Settings */
+.row.set.eyes { height: auto; flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 10px 11px; border-radius: 20px; }
+.eyegrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.eyeopt { height: 44px; border-radius: 14px; background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); display: grid; place-items: center; transition: transform .2s var(--spring), box-shadow .15s; }
+.eyeopt:hover { transform: scale(1.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45); }
+.eyeopt.on { box-shadow: inset 0 0 0 2px #a98bff; }
+.eyepv { display: inline-flex; gap: 9px; align-items: center; height: 14px; zoom: 1.9; }
+.eyepv i { display: block; width: 7px; height: 11px; border-radius: 50%; background: #fff; animation: eyepv-blink 4.6s infinite; }
+@keyframes eyepv-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+
 .sw-venom { background: radial-gradient(circle at 32% 30%, #e6eaf2 0 9%, #3a3d47 22%, #000 60%); }
 .sws { gap: 4px; }
 .sws button { width: 17px; height: 17px; }
