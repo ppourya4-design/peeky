@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
@@ -41,11 +42,18 @@ class MediaService : Service() {
     session = s
     MediaStore.session = s
     MediaStore.serviceAlive = true
-    startForeground(NOTIF_ID, buildNotification())
+    goForeground()
     applyState()
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    // A null intent means the system restarted us (START_STICKY) after killing the
+    // process. The WebView player died with that process and MediaStore starts
+    // empty — there is nothing to play, so don't linger as a zombie notification.
+    if (intent == null && MediaStore.title.isEmpty() && !MediaStore.playing) {
+      stopSelf()
+      return START_NOT_STICKY
+    }
     when (intent?.action) {
       ACTION_PLAY -> dispatch("play")
       ACTION_PAUSE -> dispatch("pause")
@@ -54,9 +62,32 @@ class MediaService : Service() {
       ACTION_STOP -> dispatch("stop")
     }
     // (re)post the foreground notification with the freshest state
-    startForeground(NOTIF_ID, buildNotification())
+    goForeground()
     applyState()
-    return START_NOT_STICKY
+    return START_STICKY
+  }
+
+  override fun onTaskRemoved(rootIntent: Intent?) {
+    // The app was swiped from recents. The manifest sets stopWithTask=false and
+    // playback lives in this process, so nothing stops: just re-assert the
+    // foreground state and let the music play on.
+    try {
+      goForeground()
+      applyState()
+    } catch (e: Exception) {
+      // if the promotion fails the system may still keep the service; never crash here
+    }
+    super.onTaskRemoved(rootIntent)
+  }
+
+  /** Promote to foreground, passing the mediaPlayback type explicitly on API 29+. */
+  private fun goForeground() {
+    val n = buildNotification()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+    } else {
+      startForeground(NOTIF_ID, n)
+    }
   }
 
   override fun onDestroy() {

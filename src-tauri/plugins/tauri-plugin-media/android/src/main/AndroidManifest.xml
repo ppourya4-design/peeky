@@ -8,6 +8,7 @@
         <service
             android:name="com.plugin.media.MediaService"
             android:exported="false"
+            android:stopWithTask="false"
             android:foregroundServiceType="mediaPlayback" />
     </application>
 </manifest>
