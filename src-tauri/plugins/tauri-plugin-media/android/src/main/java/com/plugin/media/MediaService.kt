@@ -521,15 +521,14 @@ class MediaService : Service() {
     }
     b.setDeleteIntent(actionIntent(ACTION_STOP, 5))
 
-    val acts = mutableListOf<Notification.Action>()
-    if (MediaStore.hasPrev()) {
-      acts.add(
-        Notification.Action.Builder(
-          android.R.drawable.ic_media_previous, "Previous", actionIntent(ACTION_PREV, 1)
-        ).build()
-      )
-    }
-    acts.add(
+    // the standard player row — prev / play-pause / next — always present
+    // while a track is loaded, always the compact actions (One UI / Spotify
+    // layout). Prev restarts or steps back through the 1-deep history; next
+    // plays the armed track and is a no-op at the end of the queue.
+    val acts = listOf(
+      Notification.Action.Builder(
+        android.R.drawable.ic_media_previous, "Previous", actionIntent(ACTION_PREV, 1)
+      ).build(),
       if (MediaStore.playing)
         Notification.Action.Builder(
           android.R.drawable.ic_media_pause, "Pause", actionIntent(ACTION_PAUSE, 2)
@@ -537,34 +536,31 @@ class MediaService : Service() {
       else
         Notification.Action.Builder(
           android.R.drawable.ic_media_play, "Play", actionIntent(ACTION_PLAY, 3)
-        ).build()
+        ).build(),
+      Notification.Action.Builder(
+        android.R.drawable.ic_media_next, "Next", actionIntent(ACTION_NEXT, 4)
+      ).build()
     )
-    if (MediaStore.hasNext()) {
-      acts.add(
-        Notification.Action.Builder(
-          android.R.drawable.ic_media_next, "Next", actionIntent(ACTION_NEXT, 4)
-        ).build()
-      )
-    }
     acts.forEach { b.addAction(it) }
 
-    val style = Notification.MediaStyle().setMediaSession(session?.sessionToken)
-    if (acts.size >= 3) style.setShowActionsInCompactView(0, 1, 2)
-    else if (acts.isNotEmpty()) style.setShowActionsInCompactView(*IntArray(acts.size) { it })
+    val style = Notification.MediaStyle()
+      .setMediaSession(session?.sessionToken)
+      .setShowActionsInCompactView(0, 1, 2)
 
+    // rebuilt from the store on every applyState(), so a metadata change
+    // (better tags arriving) reposts it whole — no stale title/artist/art
     b.setSmallIcon(R.drawable.ic_stat_peeky)
       .setContentTitle(MediaStore.title.ifEmpty { "Peeky" })
       .setContentText(MediaStore.artist)
       .setStyle(style)
       .setVisibility(Notification.VISIBILITY_PUBLIC)
       .setOnlyAlertOnce(true)
-      .setOngoing(true)
+      // ongoing only while playing: a paused card can be swiped away, and
+      // the delete intent then stops the service (the v4 colour tint is
+      // gone — colorized cards read muddy on One UI's media panel)
+      .setOngoing(MediaStore.playing)
       .setShowWhen(false)
-      // Peeky's brand colour, deepened and desaturated: #74E5FF itself is far
-      // too bright to tint a whole notification card; this reads as the same
-      // cyan family on One UI's media panel without glowing.
-      .setColor(0xFF0E3A45.toInt())
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) b.setColorized(true)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) b.setColorized(false)
     MediaStore.cover?.let { b.setLargeIcon(it) }
     return b.build()
   }
