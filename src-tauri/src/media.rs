@@ -169,6 +169,11 @@ impl Media {
                 _ => {
                     if !self.thumb_cleared {
                         self.thumb_cleared = true;
+                        // forget the hash too: the page cleared its art on this null, so when the
+                        // real art comes back (e.g. a YouTube ad ends and the video's thumbnail
+                        // returns with the SAME bytes as before the ad) it must be pushed again —
+                        // with the old hash kept, it compared equal and the pill stayed artless
+                        self.thumb_hash = 0;
                         sys::helper(json!({ "t": "thumb", "key": key, "data": serde_json::Value::Null }));
                     }
                     self.thumb_due = Instant::now() + Duration::from_millis(700);

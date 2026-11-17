@@ -351,6 +351,11 @@ async fn player_open(app: tauri::AppHandle) {
     }
     match wb.build() {
         Ok(w) => {
+            // runtime-built windows do not inherit the app icon on their own — the player sat in
+            // the taskbar with a blank icon until it is handed one explicitly
+            if let Some(icon) = app.default_window_icon().cloned().or_else(|| tauri::image::Image::from_bytes(include_bytes!("../icons/icon.ico")).ok()) {
+                let _ = w.set_icon(icon);
+            }
             w.on_window_event(|e| {
                 if let tauri::WindowEvent::Destroyed = e {
                     sys::emit("player", false);
