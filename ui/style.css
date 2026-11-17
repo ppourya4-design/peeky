@@ -297,7 +297,6 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .sw-nebula { background: radial-gradient(circle at 30% 35%, #ff3d9a, #6a1fd1 55%, #08030f); }
 .sw-crystal { background: linear-gradient(120deg, #1b3fd0, #4a35e0 55%, #8a3fe0); }
 .sw-ember { background: linear-gradient(115deg, #0b0203 0 30%, #ff2d1a 30% 38%, #0b0203 38% 62%, #ff5a3a 62% 68%, #0b0203 68%); }
-.sw-reactor { background: linear-gradient(115deg, #030504 0 30%, #5bea1e 30% 38%, #030504 38% 62%, #8cff3a 62% 68%, #030504 68%); }
 
 /* ------------------------------------------------ held files, side by side on the pill */
 [data-view="held"] { padding: 0 5px 0 8px; gap: 5px; }
@@ -443,3 +442,156 @@ body.fa #stack-list .row.set .eyegrid,
 body.fa #stack-list .row.set .keys,
 body.fa #stack-list .row.set .num { direction: ltr; }
 body.fa #stack-list .row.set.info { direction: ltr; }
+
+/* ================================================================================================================
+   SKETCH: paper and ink.  A cream pill with a wobbly ink outline (drawn on #fx, see app.js), a yellow pencil line,
+   a serif face, and every row under the pill cut from the same paper.
+   The text is dark ink everywhere: nothing in here may stay white (the old mock-up lost "Click to see what I can do"
+   and a few other lines because they were still white on the cream).
+   ================================================================================================================ */
+body.sketch {
+  --ink: #1c2236; --paper: #f5eedb; --paper2: #ece2c6; --pencil: #e8b820;
+  --dim: rgba(28, 34, 54, .62);
+  color: var(--ink);
+  font-family: Georgia, "Palatino Linotype", "Book Antiqua", "Segoe UI Variable Text", "Segoe UI", serif;
+}
+body.sketch #island, body.sketch.scene #island { background: var(--paper); box-shadow: none; }
+body.sketch #island.tucked, body.sketch #island.tucked.hover { background: var(--ink); }
+body.sketch #island.alerting { background: #f2b6a6 !important; box-shadow: 0 0 26px rgba(255, 64, 32, .5) !important; animation: none; }
+body.sketch #island.sky .view, body.sketch .view { text-shadow: none; }
+body.sketch #t-date { font-style: italic; }
+body.sketch .strong, body.sketch #i-time, body.sketch #t-time, body.sketch #m-title { font-weight: 700; }
+body.sketch #t-date:hover { color: var(--ink); }
+
+/* text: every colour that was white-ish becomes ink */
+body.sketch .dim, body.sketch #island.sky .dim, body.sketch #island.sky #m-artist, body.sketch #m-artist, body.sketch #h-text, body.sketch .row.set.info { color: var(--dim); }
+body.sketch #n-body, body.sketch #h-text { color: rgba(28, 34, 54, .88); }
+body.sketch #n-app { color: var(--dim); }
+body.sketch .glyph, body.sketch .glyph.faded { color: var(--ink); }
+body.sketch .glyph.faded { opacity: .55; }
+body.sketch .glyph.green { color: #1c8a4c; }
+body.sketch .glyph.blue { color: #1d63c4; }
+body.sketch .glyph.red { color: #c2312d; }
+body.sketch .glyph.amber, body.sketch .amber, body.sketch #i-time.count { color: #a35f08; }
+body.sketch #m-timer { color: #8a5608; }
+body.sketch #tm-time.done { color: #c2312d; }
+body.sketch .tag { background: rgba(28, 138, 76, .16); color: #166a3a; }
+body.sketch .tag.bad { background: rgba(194, 49, 45, .16); color: #a5201c; }
+body.sketch #in-text { color: var(--ink); caret-color: var(--ink); }
+body.sketch #in-text::placeholder { color: rgba(28, 34, 54, .45); }
+body.sketch #i-shelf { color: var(--dim); }
+
+/* the eyes are the app's own eyes (whatever style is picked in Settings), just in ink: dark on cream, never white */
+body.sketch #i-face i, body.sketch .eyepv i { background: var(--ink); }
+body.sketch #i-face.happy i, body.sketch #i-face[data-eyes].happy i { background: transparent; border-color: var(--ink); }
+
+/* buttons */
+body.sketch .ib, body.sketch #island .ib, body.sketch #island.sky .ib.small { color: var(--ink); }
+body.sketch .ib.small, body.sketch #island .ib.small, body.sketch #island.sky .ib.small { color: rgba(28, 34, 54, .72); }
+body.sketch .ib:hover, body.sketch #island .ib:hover { background: rgba(28, 34, 54, .12); color: var(--ink); }
+body.sketch .ib.solid, body.sketch #island .ib.solid, body.sketch .ib.active, body.sketch #island .ib.active { background: var(--ink); color: var(--paper); }
+body.sketch .ib.solid:hover, body.sketch #island .ib.solid:hover { background: var(--ink); color: var(--paper); }
+body.sketch .ib.live, body.sketch #island .ib.live { color: #1c8a4c; }
+body.sketch .volmode #b-vol, body.sketch #island.sky .volmode #b-vol { color: var(--ink); background: rgba(28, 34, 54, .14); }
+body.sketch .sep { background: rgba(28, 34, 54, .28); }
+body.sketch .badge.quiet { background: var(--ink); color: var(--paper); }
+body.sketch #dots i { box-shadow: 0 0 0 1.5px var(--paper); }
+
+/* sliders and the track hairline */
+body.sketch .vbar::before, body.sketch #seek::before { background: rgba(28, 34, 54, .2); }
+body.sketch .vbar i, body.sketch #seek-fill { background: var(--ink); }
+body.sketch .vbar i::after, body.sketch #seek-knob { background: var(--paper); box-shadow: 0 0 0 2px var(--ink); }
+body.sketch #flash { background: var(--paper); color: var(--ink); }
+body.sketch #flash i { box-shadow: inset 0 0 0 1.5px var(--ink); }
+body.sketch #art { background-color: rgba(28, 34, 54, .1); box-shadow: inset 0 0 0 1.8px var(--ink); color: var(--ink); }
+body.sketch #n-icon { background-color: var(--paper); background-image: none; color: var(--ink); box-shadow: inset 0 0 0 1.8px var(--ink); font-weight: 700; }
+body.sketch .hf .ic, body.sketch .row .ic.plain { color: var(--ink); }
+body.sketch .hf:hover { background: rgba(28, 34, 54, .12); }
+body.sketch .hf .rm { background: var(--ink); color: var(--paper); }
+
+/* the rows under the pill: cream paper with an ink outline and a hard shadow, the edge made rough by an SVG filter */
+body.sketch .row, body.sketch .row:hover, body.sketch .row.set:hover, body.sketch .row.empty:hover { background: none; box-shadow: none; color: var(--ink); position: relative; isolation: isolate; }
+body.sketch .row.actions, body.sketch .row.actions:hover, body.sketch .row.set.info { background: none; }
+body.sketch .row:not(.actions):not(.info)::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; background: var(--paper); box-shadow: inset 0 0 0 2px var(--ink), 2.5px 3.5px 0 var(--ink); filter: url(#rough-a); }
+body.sketch .row:nth-child(3n+2):not(.actions):not(.info)::before { filter: url(#rough-b); }
+body.sketch .row:nth-child(3n):not(.actions):not(.info)::before { filter: url(#rough-c); }
+body.sketch .row:not(.actions):not(.info):hover::before { background: var(--paper2); }
+body.sketch .row.pinned::before { box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 4px var(--pencil), 2.5px 3.5px 0 var(--ink); }
+body.sketch .row.loc.cur::before { box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 4px var(--pencil), 2.5px 3.5px 0 var(--ink); }
+body.sketch .row.set .lbl, body.sketch .row .mqbox, body.sketch .row.clip .mqbox { color: var(--ink); }
+body.sketch .row .mqbox b { color: var(--ink); }
+body.sketch .row .app, body.sketch .row .tm, body.sketch .row .who { color: var(--dim); }
+body.sketch .row .x, body.sketch .row .act, body.sketch .row .pin { color: rgba(28, 34, 54, .6); }
+body.sketch .row .x:hover, body.sketch .row .act:hover, body.sketch .row .pin:hover { background: rgba(28, 34, 54, .14); color: var(--ink); }
+body.sketch .row.pinned .pin { color: #6a4bd6; }
+body.sketch .row.vault .x.sure { background: #c2312d; color: #fff; }
+body.sketch .row .chip { background: rgba(28, 34, 54, .12); color: var(--ink); }
+body.sketch .row .chip.off { background: rgba(28, 34, 54, .07); color: var(--dim); }
+body.sketch .row.note.done .mqbox { color: var(--dim); }
+body.sketch .row .thumb { box-shadow: inset 0 0 0 1.5px var(--ink); }
+body.sketch .cc { background: rgba(28, 34, 54, .12); color: var(--ink); }
+body.sketch .row.set .go { background: rgba(28, 34, 54, .12); color: var(--ink); font-weight: 700; }
+body.sketch .row.set .go:hover { background: var(--ink); color: var(--paper); }
+body.sketch .row.set .num { color: var(--ink); }
+/* switches, segments, swatches */
+body.sketch .sw { background: rgba(28, 34, 54, .2); box-shadow: inset 0 0 0 1.8px var(--ink); }
+body.sketch .sw::after { background: var(--paper); box-shadow: 0 0 0 1.8px var(--ink); }
+body.sketch .sw.on, body.sketch .sw.big.on { background: var(--pencil); }
+body.sketch .seg { background: rgba(28, 34, 54, .1); box-shadow: inset 0 0 0 1.5px rgba(28, 34, 54, .45); }
+body.sketch .seg button { color: rgba(28, 34, 54, .75); }
+body.sketch .seg button.on { background: var(--ink); color: var(--paper); font-weight: 700; }
+body.sketch .sws button { box-shadow: inset 0 0 0 1px rgba(28, 34, 54, .55); }
+body.sketch .sws button.on { box-shadow: 0 0 0 1.5px var(--paper), 0 0 0 3px var(--ink); }
+body.sketch .eyeopt { background: var(--paper); box-shadow: inset 0 0 0 1.5px rgba(28, 34, 54, .4); }
+body.sketch .eyeopt:hover { box-shadow: inset 0 0 0 1.5px var(--ink); }
+body.sketch .eyeopt.on { box-shadow: inset 0 0 0 2.5px var(--ink); }
+/* the buttons and chips that float under the pill */
+body.sketch .row.actions button, body.sketch #stack-clear, body.sketch #side { background: var(--paper); color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink), 2px 3px 0 var(--ink); }
+body.sketch .row.actions button:hover, body.sketch #stack-clear:hover { background: var(--ink); color: var(--paper); }
+body.sketch #side:hover { background: var(--paper2); }
+body.sketch #side .ic { background-color: var(--paper); background-image: none; color: var(--ink); box-shadow: inset 0 0 0 1.6px var(--ink); }
+/* the swatch in the Theme row */
+.sw-sketch { background: linear-gradient(180deg, #f8f1dd 0 66%, #e8b820 66% 80%, #f8f1dd 80%); box-shadow: inset 0 0 0 2px #1c2236 !important; }
+
+/* ================================================================================================================
+   IRIS: a black pill in a thin rainbow ring that turns slowly (drawn on #fx and #sky, see app.js). The rows under it
+   wear the same ring, the eyes are warm like lamps, the switches are violet.
+   ================================================================================================================ */
+body.iris {
+  --dim: rgba(255, 255, 255, .6);
+  --iris-ring: linear-gradient(100deg, #2fe3c0, #5b8cff 24%, #b06bff 48%, #ff5fa8 72%, #ffb25c 90%, #2fe3c0);
+}
+body.iris #island, body.iris.scene #island { background: #07070c; box-shadow: none; }
+body.iris #island.tucked, body.iris #island.tucked.hover { background: #07070c; }
+body.iris #i-face i, body.iris .eyepv i { background: radial-gradient(circle at 50% 38%, #fffaf0, #ffe6b8 70%, #f6c978); box-shadow: 0 0 7px rgba(255, 214, 140, .55); }
+body.iris #i-face.happy i, body.iris #i-face[data-eyes].happy i { background: transparent; border-color: #ffe6b8; box-shadow: none; }
+body.iris .row:not(.actions):not(.info), body.iris .row:not(.actions):not(.info):hover, body.iris .row.set:not(.info):hover, body.iris .row.empty:hover {
+  --rb: #08080d;
+  border: 1.5px solid transparent;
+  background: linear-gradient(var(--rb), var(--rb)) padding-box, var(--iris-ring) border-box;
+  background-size: auto, 200% 100%;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, .45), 0 0 16px rgba(140, 110, 255, .14);
+  animation: irisflow 9s linear infinite;
+}
+body.iris .row:not(.actions):not(.info):hover { --rb: #14141c; }
+body.iris #stack.fresh .row { animation: drop .42s var(--spring) both, irisflow 9s linear infinite; animation-delay: calc(var(--i, 0) * 45ms), 0s; }
+@keyframes irisflow { to { background-position: 0 0, 200% 0; } }
+body.iris .row.pinned { box-shadow: 0 3px 14px rgba(0, 0, 0, .45), 0 0 18px rgba(169, 139, 255, .35); }
+body.iris .row.actions button, body.iris #stack-clear, body.iris #side {
+  border: 1.5px solid transparent;
+  background: linear-gradient(#08080d, #08080d) padding-box, var(--iris-ring) border-box;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .45);
+}
+body.iris .row.actions button:hover, body.iris #stack-clear:hover { background: linear-gradient(#fff, #fff) padding-box, var(--iris-ring) border-box; color: #000; }
+body.iris #side:hover { background: linear-gradient(#14141c, #14141c) padding-box, var(--iris-ring) border-box; }
+body.iris .row.set .go { background: #1e1e28; }
+body.iris .row.set .go:hover { background: #fff; color: #000; }
+body.iris .seg { background: #14141c; }
+body.iris .eyeopt { background: #08080d; }
+body.iris .eyeopt.on { box-shadow: inset 0 0 0 2px #a98bff; }
+body.iris .sw { background: rgba(255, 255, 255, .14); }
+body.iris .sw.on, body.iris .sw.big.on { background: linear-gradient(90deg, #8b5cf6, #b784ff); }
+body.iris #n-icon { background-image: linear-gradient(135deg, #3b82f6, #8b5cf6); }
+body.iris #island.alerting { box-shadow: 0 0 36px rgba(255, 64, 32, .6) !important; }
+@media (prefers-reduced-motion: reduce) { body.iris .row { animation: none !important; } }
+.sw-iris { background: radial-gradient(circle, #07070c 0 56%, transparent 60%), conic-gradient(#2fe3c0, #5b8cff, #b06bff, #ff5fa8, #ffb25c, #2fe3c0); }

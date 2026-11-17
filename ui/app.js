@@ -626,13 +626,17 @@ const THEMES = {
   nebula: { name: 'Nebula', pal: ['#7a1fd1', '#c0269a', '#ff4f9a'] },
   crystal: { name: 'Sapphire', pal: ['#2b36d9', '#5a48f0', '#9a6bff'] },
   ember: { name: 'Ember', pal: ['#a8081d', '#dc1230', '#ff4a3d'] },
-  reactor: { name: 'Reactor', pal: ['#2f8f12', '#6fd61f', '#b6ff3a'] },
   venom: { name: 'Venom', pal: ['#3a3d47', '#8a8f9c', '#e6eaf2'] },
+  sketch: { name: 'Sketch', pal: ['#2a3047', '#3a4260', '#566080'] },        // paper and ink (the accent colours are the ink's)
+  iris: { name: 'Iris', pal: ['#8b5cf6', '#a97bff', '#c9a0ff'] },            // black with a rainbow ring (the accents are the switches' violet)
   cloud: { name: 'Storm cloud', pal: ['#7f93b3', '#b9c8e0', '#ffffff'] },
   water: { name: 'Water', pal: ['#0b5fd6', '#1aa6e8', '#5fe0e6'] },
   lava: { name: 'Lava', pal: ['#e02a0c', '#ff7a18', '#ffd24a'] },
   ice: { name: 'Ice', pal: ['#5aa9e6', '#9fd3f7', '#e9f6ff'] },
 };
+const SOLID = ['cloud', 'water', 'lava', 'ice', 'sketch', 'iris'];       // skins that are a surface of their own: they never step back behind the text
+// The player window wears the theme, except Sketch (paper) and Iris (a ring around the pill): its text is white on a dark card, so these two leave it on the cover's colours.
+const playerSkin = () => st.playerTheme !== false && THEMES[st.skin] && st.skin !== 'sketch' && st.skin !== 'iris';
 let palette = DEFAULT_PAL.slice(), lookNow = null, lookDrawn = 'sky';
 function applyPal() {       // the accent colours (glow, switches) follow whatever the pill is wearing
   const p = THEMES[lookNow] ? THEMES[lookNow].pal : palette;
@@ -1249,12 +1253,12 @@ function sendPlayer(force) {
     title: m.title || '', artist: m.artist || '', pos: Math.round(a.currentTime * 1000), dur: isFinite(a.duration) ? Math.round(a.duration * 1000) : 0,
     shuffle: shuffleOn(), repeat: repeatMode(), count: local.list.length, vol: getVol(), mute: getMute(), scanning: local.scanning, folder: local.folder || '',
     // the window wears the pill's look: a skin brings its own animation, plain black takes the cover's colours (any source, not only local files)
-    look: st.playerTheme !== false && THEMES[st.skin] ? st.skin : 'black',
-    pal: st.playerTheme !== false && THEMES[st.skin] ? THEMES[st.skin].pal : palette,
+    look: playerSkin() ? st.skin : 'black',
+    pal: playerSkin() ? THEMES[st.skin].pal : palette,
     active: !!(local.on || st.media.active),
     live: !!(st.media.playing || (local.on && !a.paused)),
     react: st.react,
-    top: st.playerTheme !== false && THEMES[st.skin] ? THEMES[st.skin].pal[1] : (local.on || st.media.active) ? palette[1] : '',
+    top: playerSkin() ? THEMES[st.skin].pal[1] : (local.on || st.media.active) ? palette[1] : '',
   });
 }
 setInterval(() => { if (st.playerOpen) sendPlayer(); }, 300);
@@ -1427,7 +1431,6 @@ const FW = SKY_W / 2, FH = SKY_H / 2;
 const fcan = document.createElement('canvas'); fcan.width = FW; fcan.height = FH;
 const fctx = fcan.getContext('2d'), fimg = fctx.createImageData(FW, FH);
 const LIQ = {
-  reactor: { bg: [3, 5, 4], lo: [36, 140, 10], hi: [165, 255, 55], spec: [235, 255, 200], thr: 0.8, speed: 1 },
   ember: { bg: [12, 2, 4], lo: [150, 8, 22], hi: [255, 52, 40], spec: [255, 200, 170], thr: 0.78, speed: 1 },
   crystal: { bg: [9, 8, 46], lo: [44, 48, 205], hi: [140, 105, 255], spec: [236, 232, 255], thr: 0.45, speed: 0.8 },
   venom: { bg: [0, 0, 1], lo: [14, 15, 19], hi: [38, 41, 50], spec: [150, 156, 170], thr: 0.62, speed: 0.55 },
@@ -1715,14 +1718,116 @@ function drawIce(t, dt, on, live) {
   if (live && bass > 0.3) for (let k = 0; k < 3; k++) { f.globalAlpha = bass; sparkle(f, x0 + 12 + ((k * 0.37 + t * 0.0002) % 1) * (W - 24), 13 + k * 9, 3 + bass * 4); }
   f.globalAlpha = 1;
 }
+// ---- Sketch and Iris: two skins that change the whole pill (and the rows under it, see style.css), like Venom does.
+// Both draw their outline on the #fx canvas just outside the pill, from the pill's real on-screen box, so the hover zoom and the bounce keep it in place.
+// a point on the outline of a pill-shaped box: d = distance along it -> [x, y, outward x, outward y]
+function stadiumPt(d, x, y, w, h) {
+  const R = h / 2, flat = Math.max(0, w - h), L = 2 * flat + 2 * Math.PI * R;
+  d = ((d % L) + L) % L;
+  const xl = x + R, xr = x + R + flat, cy = y + R;
+  if (d < flat) return [xl + d, y + h, 0, 1];
+  d -= flat;
+  if (d < Math.PI * R) { const a = Math.PI / 2 - d / R; return [xr + Math.cos(a) * R, cy + Math.sin(a) * R, Math.cos(a), Math.sin(a)]; }
+  d -= Math.PI * R;
+  if (d < flat) return [xr - d, y, 0, -1];
+  d -= flat;
+  const a = -Math.PI / 2 - d / R; return [xl + Math.cos(a) * R, cy + Math.sin(a) * R, Math.cos(a), Math.sin(a)];
+}
+// the outline as a path: `grow` pushes it outwards, `amp` wobbles it like a hand-drawn line (a new wobble every `boil`)
+function pillPath(g, x, y, w, h, grow, amp, seed, boil) {
+  const L = 2 * Math.max(0, w - h) + Math.PI * h, n = Math.max(24, Math.round(L / 5));
+  g.beginPath();
+  for (let i = 0; i < n; i++) {
+    const d = i / n * L, [px, py, nx, ny] = stadiumPt(d, x, y, w, h);
+    const o = grow + amp * (Math.sin(d * 0.13 + seed + boil) + 0.55 * Math.sin(d * 0.31 + seed * 1.7 - boil * 1.3) + 0.3 * Math.sin(d * 0.71 + seed * 0.6 + boil * 2));
+    if (i) g.lineTo(px + nx * o, py + ny * o); else g.moveTo(px + nx * o, py + ny * o);
+  }
+  g.closePath();
+}
+const pillBox = () => { const r = island.getBoundingClientRect(), f = fx.getBoundingClientRect(); return [r.left - f.left, r.top - f.top, r.width, r.height]; };
+const INK = '#1c2236', PENCIL = '#e8b820';
+let penOn = false;
+function drawSketch(t, dt, on) {
+  if (!on) { if (penOn) { penOn = false; fxG.clearRect(0, 0, fx.width, fx.height); } return; }
+  penOn = true;
+  const f = fxG, [x, y, w, h] = pillBox(), boil = Math.floor(t / 140) * 1.9;       // the ink line "boils": a slightly different wobble a few times a second
+  f.clearRect(0, 0, fx.width, fx.height);
+  f.fillStyle = INK;
+  pillPath(f, x + 2.2, y + 3.4, w, h, 1.9, 0.9, 1.3, boil); f.fill();             // the hard shadow, down and to the right
+  pillPath(f, x, y, w, h, 1.9, 0.8, 4.1, boil + 5); f.fill();                     // the outline (the paper covers its inside)
+}
+const sparks = [], flecks = Array.from({ length: 46 }, () => [Math.random(), Math.random(), Math.random()]);
+let lastSpark = 0;
+// the paper: a soft wash, a few fibres, pencil hatching, a wobbly ink edge, and a yellow pencil line along the bottom that waves with the music
+PAINT.sketch = (g, t, dt, x0, x1, W, A) => {
+  const boil = Math.floor(t / 140) * 1.9;
+  g.globalAlpha = A;
+  const wash = g.createLinearGradient(0, 0, 0, SKY_H); wash.addColorStop(0, '#f8f1dd'); wash.addColorStop(1, '#eadfc2');
+  g.fillStyle = wash; g.fillRect(x0, 0, W, SKY_H);
+  g.lineCap = 'round'; g.lineWidth = 0.7; g.strokeStyle = 'rgba(110,90,50,.11)'; g.beginPath();
+  for (let i = 0, n = clamp(Math.round(W / 8), 6, flecks.length); i < n; i++) {
+    const [a, b, c] = flecks[i], x = x0 + a * W, y = b * SKY_H, l = 3 + c * 6, an = c * 3.1416;
+    g.moveTo(x, y); g.lineTo(x + Math.cos(an) * l, y + Math.sin(an) * l);
+  }
+  g.stroke();
+  g.lineWidth = 0.8; g.strokeStyle = 'rgba(60,55,45,.12)'; g.beginPath();          // pencil hatching, low on the right
+  for (let x = x0 + W * 0.3; x < x1 - 10; x += 5) { g.moveTo(x, SKY_H - 4); g.lineTo(x + 7, SKY_H - 13); }
+  g.stroke();
+  const amp = 1 + energy * 4 + bass * 2, y0 = SKY_H - 6.5;                         // the pencil line
+  g.strokeStyle = PENCIL; g.lineWidth = 2.1; g.lineJoin = 'round'; g.globalAlpha = A * 0.95; g.beginPath();
+  for (let x = x0 + 10, first = true; x <= x1 - 10; x += 3, first = false) {
+    const lv = levels[clamp(Math.floor((x - x0) / W * NB), 0, NB - 1)];
+    const y = Math.min(SKY_H - 2.5, y0 + Math.sin(x * 0.085 + t * 0.0032) * (1 + amp * 0.35) + Math.sin(x * 0.21 - t * 0.005) * (0.5 + lv * 3.2) + Math.sin(x * 1.7 + boil) * 0.35);
+    if (first) g.moveTo(x, y); else g.lineTo(x, y);
+  }
+  g.stroke();
+  if (bass - bassSlow > 0.12 && sparks.length < 3 && t - lastSpark > 260) { lastSpark = t; sparks.push({ x: x0 + 14 + Math.random() * (W - 28), y: 6 + Math.random() * 12, life: 1, r: 3.5 + Math.random() * 2 }); }
+  g.strokeStyle = INK; g.lineWidth = 1.2;                                           // little hand-drawn asterisks on a beat
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const k = sparks[i]; k.life -= dt * 1.6;
+    if (k.life <= 0) { sparks.splice(i, 1); continue; }
+    g.globalAlpha = A * k.life * 0.7; g.beginPath();
+    for (let q = 0; q < 3; q++) { const an = q * 1.0472 + t * 0.002; g.moveTo(k.x - Math.cos(an) * k.r, k.y - Math.sin(an) * k.r); g.lineTo(k.x + Math.cos(an) * k.r, k.y + Math.sin(an) * k.r); }
+    g.stroke();
+  }
+  g.globalAlpha = A; g.strokeStyle = INK; g.lineWidth = 1.8;                         // the ink edge, drawn again from the inside so it is never smooth
+  pillPath(g, x0, 0, W, SKY_H, -0.4, 0.5, 2.2, boil); g.stroke();
+};
+// a rainbow laid along the pill, slowly turning
+function irisGrad(g, x0, x1, t) {
+  const gr = g.createLinearGradient(x0, 0, x1, 0), ph = (t * 0.018 * (1 + energy * 2.5)) % 360, cyc = clamp((x1 - x0) / 240, 1, 3);
+  for (let i = 0; i <= 8; i++) gr.addColorStop(i / 8, `hsl(${Math.round((ph + i / 8 * 360 * cyc) % 360)} 78% 64%)`);
+  return gr;
+}
+let irisOn = false;
+function drawIris(t, dt, on) {
+  if (!on) { if (irisOn) { irisOn = false; fxG.clearRect(0, 0, fx.width, fx.height); } return; }
+  irisOn = true;
+  const f = fxG, [x, y, w, h] = pillBox(), gr = irisGrad(f, x, x + w, t);
+  f.clearRect(0, 0, fx.width, fx.height);
+  f.save(); f.filter = 'blur(7px)'; f.globalAlpha = clamp(0.4 + bass * 0.45 + energy * 0.3, 0, 0.95);     // the soft halo
+  f.strokeStyle = gr; f.lineWidth = 4 + bass * 5; pillPath(f, x, y, w, h, 0.4, 0, 0, 0); f.stroke(); f.restore();
+  f.strokeStyle = gr; f.lineWidth = 2.6; pillPath(f, x, y, w, h, 0.2, 0, 0, 0); f.stroke();               // the ring (its inner half hides under the pill)
+}
+PAINT.iris = (g, t, dt, x0, x1, W, A) => {
+  const gr = irisGrad(g, x0, x1, t);
+  g.save(); g.globalAlpha = A * clamp(0.22 + energy * 0.5 + bass * 0.2, 0, 0.8);        // colour rising from the bottom edge
+  g.fillStyle = gr; g.fillRect(x0, 0, W, SKY_H);
+  g.globalCompositeOperation = 'destination-in';
+  const m = g.createLinearGradient(0, 0, 0, SKY_H); m.addColorStop(0.3, 'rgba(0,0,0,0)'); m.addColorStop(1, 'rgba(0,0,0,1)');
+  g.fillStyle = m; g.fillRect(0, 0, SKY_W, SKY_H); g.restore();
+  g.globalAlpha = A; g.strokeStyle = gr; g.lineWidth = 1.8; pillPath(g, x0, 0, W, SKY_H, -0.5, 0, 0, 0); g.stroke();
+};
 // whichever of these the current skin needs; the rest are switched off first so two never share the canvas
 let aura = null;
 function drawAura(t, dt, live) {
-  const want = !st.tucked && skyA > 0.5 && ['venom', 'cloud', 'water', 'lava', 'ice'].includes(lookNow) ? lookNow : null;
-  if (want !== aura) { drawGoo(t, 0, false); drawCloud(t, 0, false); drawBody(t, 0, null); drawIce(t, 0, false); aura = want; document.body.classList.toggle('scene', !!want); document.body.classList.toggle('venom', want === 'venom'); }
+  const want = !st.tucked && skyA > 0.5 && ['venom', 'cloud', 'water', 'lava', 'ice', 'sketch', 'iris'].includes(lookNow) ? lookNow : null;
+  if (want !== aura) { drawGoo(t, 0, false); drawCloud(t, 0, false); drawBody(t, 0, null); drawIce(t, 0, false); drawSketch(t, 0, false); drawIris(t, 0, false); aura = want; document.body.classList.toggle('scene', !!want); document.body.classList.toggle('venom', want === 'venom'); }
   if (want === 'venom') drawGoo(t, dt, true, live);
   else if (want === 'cloud') drawCloud(t, dt, true, live);
   else if (want === 'ice') drawIce(t, dt, true, live);
+  else if (want === 'sketch') drawSketch(t, dt, true);
+  else if (want === 'iris') drawIris(t, dt, true);
   else if (want) drawBody(t, dt, want, live);
 }
 let dimA = 1;
@@ -1731,10 +1836,10 @@ function drawLook(t, dt, live) {
   g.clearRect(0, 0, SKY_W, SKY_H);
   if (skyA < 0.01) return;
   // behind a row of buttons or a line of text the skin steps back, so everything stays easy to read
-  const want = cur === 'idle' || ['cloud', 'water', 'lava', 'ice'].includes(lookDrawn) ? 1 : cur === 'media' || cur === 'held' ? 0.72 : lookDrawn === 'sky' ? 0.8 : 0.55;
+  const want = cur === 'idle' || SOLID.includes(lookDrawn) ? 1 : cur === 'media' || cur === 'held' ? 0.72 : lookDrawn === 'sky' ? 0.8 : 0.55;
   dimA += (want - dimA) * 0.18;
   const W = island.clientWidth, x0 = (SKY_W - W) / 2;
-  (PAINT[lookDrawn] || paintSky)(g, t, dt, x0, x0 + W, W, skyA * dimA * (live || ['cloud', 'water', 'lava', 'ice'].includes(lookDrawn) ? 1 : 0.9));
+  (PAINT[lookDrawn] || paintSky)(g, t, dt, x0, x0 + W, W, skyA * dimA * (live || SOLID.includes(lookDrawn) ? 1 : 0.9));
   g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
 }
 const barsC = $('#bars'), barsG = barsC.getContext('2d');
@@ -1746,6 +1851,7 @@ function frame(t) {
   if (look !== lookNow) {
     if (look && lookNow) skyA = Math.min(skyA, 0.2);       // one skin gives way to another: fade the new one in
     lookNow = look; applyPal();
+    document.body.classList.toggle('sketch', look === 'sketch'); document.body.classList.toggle('iris', look === 'iris');      // these two restyle the text and the rows too (style.css)
   }
   if (look) lookDrawn = look;
   skyA += ((look ? 1 : 0) - skyA) * 0.07;
@@ -1777,7 +1883,7 @@ function frame(t) {
   if (cur === 'media') {
     const w = barsC.width, h = barsC.height, n = 5, bw = 6, gap = 5, x0 = (w - (n * bw + (n - 1) * gap)) / 2;
     barsG.clearRect(0, 0, w, h);
-    barsG.fillStyle = document.body.classList.contains('daylight') ? '#18222f' : '#fff';
+    barsG.fillStyle = document.body.classList.contains('sketch') ? INK : document.body.classList.contains('daylight') ? '#18222f' : '#fff';       // white bars would vanish on the paper
     for (let i = 0; i < n; i++) {
       const v = clamp(levels[1 + i * 4] * 1.5, 0.14, 1), bh = v * (h - 4);
       barsG.beginPath(); barsG.roundRect(x0 + i * (bw + gap), (h - bh) / 2, bw, bh, 3); barsG.fill();
@@ -2411,7 +2517,7 @@ const SETTINGS_UI = [
   ['toggle', 'autoHide', 'Hide while a window is underneath'],
   ['toggle', 'hideVideo', 'Stay out of the way for videos'],
   ['eyes', 'eyeStyle', 'Eye style'],
-  ['swatch', 'skin', 'Theme', ['black', 'nebula', 'crystal', 'ember', 'reactor', 'venom']],        // cloud, water, lava and ice are parked until they are finished
+  ['swatch', 'skin', 'Theme', ['black', 'nebula', 'crystal', 'ember', 'venom', 'sketch', 'iris']],        // cloud, water, lava and ice are parked until they are finished
   ['toggle', 'musicReact', 'Theme reacts to music'],
   ['toggle', 'visuals', 'Night sky with music (black theme)'],
   ['toggle', 'playerTheme', 'Player window wears the theme'],
@@ -2449,7 +2555,7 @@ function renderSettings() {
       }
       row.appendChild(seg);
     } else if (type === 'swatch') {
-      const now = s[key] || a[0];
+      const now = a.includes(s[key]) ? s[key] : a[0];
       const name = document.createElement('span'); name.className = 'dim swn'; name.textContent = now === 'sky' ? 'Cover colours' : now === 'black' ? 'Black' : THEMES[now].name;
       const box = document.createElement('div'); box.className = 'sws';
       for (const val of a) {
@@ -2586,7 +2692,7 @@ const applySettings = (s) => {
   st.shelfOn = s.shelf !== false;
   st.visuals = s.visuals !== false;
   st.playerTheme = s.playerTheme !== false;
-  st.skin = ['nebula', 'crystal', 'ember', 'reactor', 'venom'].includes(s.skin) ? s.skin : 'black';
+  st.skin = ['nebula', 'crystal', 'ember', 'venom', 'sketch', 'iris'].includes(s.skin) ? s.skin : 'black';       // (a saved 'reactor' simply becomes black)
   st.musicTheme = THEMES[s.musicTheme] ? s.musicTheme : 'sky';
   st.smartCopy = s.smartCopy !== false;
   st.react = s.musicReact !== false;

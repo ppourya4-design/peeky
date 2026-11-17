@@ -24,7 +24,7 @@ catches your notifications, remembers what you copied, holds your files, and bli
 ## What it does
 
 - **Now playing.** Title, artist, cover, controls and a scrubber for whatever is playing on the system. Films and fullscreen games are left alone.
-- **Themes that move.** Liquid skins that drift at rest and flood with colour on the beat (or stay calm, if you switch that off). In **Venom** the pill itself turns to black goo.
+- **Themes that move.** Liquid skins that drift at rest and flood with colour on the beat (or stay calm, if you switch that off). In **Venom** the pill itself turns to black goo. **Sketch** turns it into a scrap of paper drawn in ink (a yellow pencil line waves with the music), and **Iris** wraps a black pill in a slowly turning rainbow ring.
 - **Local music.** Pick a folder once; the music button in the menu lists every track, a click plays it right on the pill (cover and title from the file's tags, shuffle, next/previous, scrubber). A small speaker button on the player opens a volume slider in place, inside the same pill.
 - **Player window.** One click opens a small separate player: big cover, seek bar, volume, search and the full track list. The pill then leaves the music to it, and takes it back when the window is closed.
 - **Lyrics.** The player window has a Lyrics button: synced lyrics from [LRCLIB](https://lrclib.net) glide with the song, tap a line to jump there, ±10 s buttons, a per-song timing nudge, or load your own `.lrc` file. Only the title, artist and length of the playing song are sent, and only after you have opened Lyrics once.

@@ -10,7 +10,7 @@ use windows::Win32::System::Com::Urlmon::URLDownloadToFileW;
 
 use crate::{settings, sys};
 
-const BASE: &str = "https://github.com/ppourya4-design/peeky/releases/latest/download";
+const BASE: &str = "https://github.com/ppourya4-design/poyzen/releases/latest/download";
 /// The public half of Poyzen's own release-signing key (Ed25519). The private half never leaves the
 /// maintainer's machine: releases are built by CI, then the installer is signed locally and the
 /// signature uploaded to the release — no signing key exists in the repository or its secrets.
@@ -53,7 +53,7 @@ pub fn check() -> String {
     if !newer(&version, env!("CARGO_PKG_VERSION")) {
         return "none".into();
     }
-    let (Some(setup), Some(sig)) = (fetch("Peeky-Setup.exe"), fetch("Peeky-Setup.exe.sig")) else {
+    let (Some(setup), Some(sig)) = (fetch("Poyzen-Setup.exe"), fetch("Poyzen-Setup.exe.sig")) else {
         return "failed: download did not finish".into();
     };
     if !signed(&setup, &sig) {
@@ -68,7 +68,7 @@ pub fn check() -> String {
 /// Runs the downloaded installer quietly; it closes this copy, replaces it and starts the new one.
 pub fn install() -> bool {
     let Some((v, setup)) = READY.lock().unwrap().clone() else { return false };
-    if !signed(&setup, &dir().join("Peeky-Setup.exe.sig")) {
+    if !signed(&setup, &dir().join("Poyzen-Setup.exe.sig")) {
         return false; // the file changed since it was checked
     }
     sys::log(&format!("installing update {v}"));
@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn signature_made_by_the_release_script_is_accepted() {
         let dist = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("dist");
-        let (setup, sig) = (dist.join("Peeky-Setup.exe"), dist.join("Peeky-Setup.exe.sig"));
+        let (setup, sig) = (dist.join("Poyzen-Setup.exe"), dist.join("Poyzen-Setup.exe.sig"));
         if !setup.exists() || !sig.exists() {
             return;
         }

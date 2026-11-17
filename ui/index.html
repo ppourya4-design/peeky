@@ -8,6 +8,11 @@
 <body>
 <div id="glow"></div>
 <svg width="0" height="0" style="position:absolute"><filter id="goo-f"><feGaussianBlur in="SourceGraphic" stdDeviation="3.2"/><feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9"/></filter></svg>
+<svg width="0" height="0" style="position:absolute"><!-- Sketch: three slightly different rough edges for the rows under the pill -->
+  <filter id="rough-a" x="-4%" y="-30%" width="108%" height="160%"><feTurbulence type="fractalNoise" baseFrequency="0.03 0.07" numOctaves="2" seed="3" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+  <filter id="rough-b" x="-4%" y="-30%" width="108%" height="160%"><feTurbulence type="fractalNoise" baseFrequency="0.035 0.06" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+  <filter id="rough-c" x="-4%" y="-30%" width="108%" height="160%"><feTurbulence type="fractalNoise" baseFrequency="0.028 0.08" numOctaves="2" seed="27" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+</svg>
 <canvas id="goo" width="700" height="96"></canvas>
 <canvas id="fx" width="700" height="110"></canvas>
 

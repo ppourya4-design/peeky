@@ -10,7 +10,7 @@ use windows::Win32::System::Registry::*;
 use crate::sys;
 
 static SETTINGS: Mutex<Option<Map<String, Value>>> = Mutex::new(None);
-const THEMES: [&str; 10] = ["black", "nebula", "crystal", "ember", "reactor", "venom", "cloud", "water", "lava", "ice"];
+const THEMES: [&str; 11] = ["black", "nebula", "crystal", "ember", "venom", "sketch", "iris", "cloud", "water", "lava", "ice"];
 const BOOLS: [&str; 18] = ["autoUpdate", "musicReact", "netAlerts", "sensorDot", "smartCopy", "autoHide", "hideVideo", "copyPreview", "clipHistory", "deviceAlerts", "downloadAlerts", "shelf", "visuals", "noteHotkey", "vaultSymbols", "musicShuffle", "musicEnabled", "playerTheme"];
 const EYE_STYLES: [&str; 6] = ["round", "venom", "sleepy", "sad", "robot", "wide"];
 const CALENDARS: [&str; 4] = ["gregorian", "shamsi", "shamsi-fa", "both"];
@@ -53,6 +53,13 @@ pub fn load() {
         for (k, v) in saved {
             map.insert(k, v);
         }
+    }
+    // a theme that was taken out of the app (Reactor) must not stay saved: it falls back to plain black / the cover's colours
+    if map.get("skin").and_then(|v| v.as_str()).map_or(false, |v| !THEMES.contains(&v)) {
+        map.insert("skin".into(), "black".into());
+    }
+    if map.get("musicTheme").and_then(|v| v.as_str()).map_or(false, |v| v != "sky" && (v == "black" || !THEMES.contains(&v))) {
+        map.insert("musicTheme".into(), "sky".into());
     }
     *SETTINGS.lock().unwrap() = Some(map);
 }
