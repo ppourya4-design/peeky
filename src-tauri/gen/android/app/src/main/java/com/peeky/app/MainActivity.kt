@@ -14,14 +14,21 @@ class MainActivity : TauriActivity() {
   }
 
   // The player reads the phone's shared storage directly, so ask for the audio/storage
-  // permission up front — without it the library simply looks empty.
+  // permission up front — without it the library simply looks empty. On Android 13+ the
+  // media notification also needs its own runtime permission.
   private fun requestAudioAccess() {
-    val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-      Manifest.permission.READ_MEDIA_AUDIO
-    else
-      Manifest.permission.READ_EXTERNAL_STORAGE
-    if (checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) {
-      requestPermissions(arrayOf(perm), 42)
+    val perms = mutableListOf(
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+        Manifest.permission.READ_MEDIA_AUDIO
+      else
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    )
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      perms.add(Manifest.permission.POST_NOTIFICATIONS)
+    }
+    val missing = perms.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+    if (missing.isNotEmpty()) {
+      requestPermissions(missing.toTypedArray(), 42)
     }
   }
 }

@@ -1,1 +1,1 @@
-{ "identifier": "default", "description": "the island window and the player window", "windows": ["main", "player"], "permissions": ["core:default"] }
+{ "identifier": "default", "description": "the island window and the player window", "windows": ["main", "player"], "permissions": ["core:default", "media:default"] }

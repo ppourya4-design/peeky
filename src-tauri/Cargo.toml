@@ -17,6 +17,10 @@ base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png", "bmp", "jpeg"] }
 ed25519-compact = { version = "2", default-features = false, features = ["std"] }
 
+# the media notification plugin (Android only; see plugins/tauri-plugin-media)
+[target.'cfg(target_os = "android")'.dependencies]
+tauri-plugin-media = { path = "plugins/tauri-plugin-media" }
+
 # the desktop shell (tray, single instance) — everything except Android
 [target.'cfg(not(target_os = "android"))'.dependencies]
 tauri-plugin-single-instance = "2"
