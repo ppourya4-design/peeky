@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Peeky's ghost as a monochrome status-bar icon. The eyes are real holes
+     (evenOdd fill), because notification small icons are rendered from the
+     alpha channel only — painted-on eyes would vanish. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M12,2.5c-4.4,0 -7.5,3.2 -7.5,7.7v10.1c0,0.9 1,1.4 1.7,0.9l1.9,-1.4 2,1.5c0.3,0.2 0.6,0.2 0.9,0l2,-1.5 1.9,1.4c0.7,0.5 1.7,0 1.7,-0.9V10.2C19.5,5.7 16.4,2.5 12,2.5zM8.8,12.6c-0.9,0 -1.6,-0.8 -1.6,-1.8s0.7,-1.8 1.6,-1.8 1.6,0.8 1.6,1.8 -0.7,1.8 -1.6,1.8zM15.2,12.6c-0.9,0 -1.6,-0.8 -1.6,-1.8s0.7,-1.8 1.6,-1.8 1.6,0.8 1.6,1.8 -0.7,1.8 -1.6,1.8z" />
+</vector>
