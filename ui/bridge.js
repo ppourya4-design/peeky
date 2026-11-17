@@ -58,6 +58,7 @@ window.qazi = {
   copy: (text) => quiet(invoke('copy_text', { text })),
 
   getSettings: () => invoke('settings_get'),
+  monitorsGet: () => invoke('monitors_get').catch(() => []),
   setSetting: (key, value) => quiet(invoke('settings_set', { key, value })),
   setCalendar: (value) => quiet(invoke('settings_set', { key: 'calendar', value })),
   action: (name) => quiet(invoke('action', { name })),

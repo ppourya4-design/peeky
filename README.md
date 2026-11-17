@@ -34,6 +34,8 @@ catches your notifications, remembers what you copied, holds your files, and bli
 - **File shelf.** Drop files on the pill; up to five sit there side by side until you drag them out again.
 - **Timer.** Stays in sight while it runs, even over a fullscreen app.
 - **Settings inside the island.** No extra windows.
+- **Persian interface.** *Settings → Language* switches the whole interface (the pill and the player window) between English and فارسی. Anything not translated yet simply stays in English.
+- **Multiple screens.** *Settings → Screen* puts the island on the primary display or on any connected one; a full-screen film on another screen leaves it alone.
 
 On its first start Poyzen says hello and shows a list of everything it can do; it stays in the settings under *What Poyzen can do*. A click on a row tries the thing itself.
 And also:
@@ -101,6 +103,8 @@ Windows today. A Linux version is being worked on; the backend talks to Windows 
 - **رمزها:** رمز می‌سازد، سایت و ایمیل را می‌پرسد و ذخیره می‌کند (رمزنگاری‌شده با حساب ویندوز).
 - **خواندن متن از صفحه:** `Ctrl+Alt+T`، دور متن کادر بکش؛ انگلیسی و فارسی. همه‌چیز روی سیستم خودت انجام می‌شود.
 - **تایمر، تاریخچهٔ کپی با عکس، نشانگر میکروفون و دوربین، وضعیت اینترنت و VPN.**
+- **رابط فارسی:** از «تنظیمات ← زبان» کل رابط (جزیره و پنجرهٔ پلیر) بین English و فارسی عوض می‌شود.
+- **چند نمایشگر:** از «تنظیمات ← نمایشگر» جزیره را روی نمایشگر اصلی یا هر نمایشگر دیگری می‌گذاری.
 - **راهنمای داخل برنامه:** بار اول خودش فهرست قابلیت‌ها را نشان می‌دهد؛ بعداً از تنظیمات، «What Poyzen can do».
 - **آپدیت خودکار:** نسخهٔ جدید دانلود، با کلید پروژه بررسی و با یک کلیک نصب می‌شود.
 

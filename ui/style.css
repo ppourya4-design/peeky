@@ -339,12 +339,18 @@ body.venom #island { box-shadow: none; }
 .eyeopt { height: 36px; border-radius: 12px; background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); display: grid; place-items: center; transition: transform .2s var(--spring), box-shadow .15s; }
 .eyeopt:hover { transform: scale(1.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45); }
 .eyeopt.on { box-shadow: inset 0 0 0 2px #a98bff; }
-/* arranging the tool row (hold a tool 3 s): everything but Settings jiggles, iOS-style, while it can be dragged */
-.view[data-view="tools"].editing .ib { box-shadow: inset 0 0 0 1px rgba(169, 139, 255, .6); cursor: grab; }
-.view[data-view="tools"].editing .ib:not([data-act="settings"]) { animation: editjiggle .26s ease-in-out infinite alternate; }
-.view[data-view="tools"].editing .ib:not([data-act="settings"]):nth-child(even) { animation-delay: .13s; }
-@keyframes editjiggle { from { transform: rotate(-1.4deg); } to { transform: rotate(1.4deg); } }
-.view[data-view="tools"].editing .ib.drag { animation: none; cursor: grabbing; z-index: 5; transition: none; box-shadow: 0 8px 20px rgba(0, 0, 0, .55), inset 0 0 0 1.5px #a98bff; }
+/* arranging the tool row (hold a tool 3 s). While you hold, the tool presses slowly in; when the time is up it pops,
+   and every tool shakes a few tenths of a degree, each at its own pace, like loose tiles. The gear stays still. */
+.view[data-view="tools"] .ib.holding { animation: holdin 3s cubic-bezier(.25, 0, .55, 1) forwards; }
+@keyframes holdin { from { transform: scale(1); background: rgba(255, 255, 255, 0); } to { transform: scale(.84); background: rgba(255, 255, 255, .22); } }
+.view[data-view="tools"].editing .ib { cursor: grab; }
+.view[data-view="tools"].editing .ib:not([data-act="settings"]) { animation: editjiggle var(--jt, .25s) var(--jd, 0s) ease-in-out infinite alternate; }
+@keyframes editjiggle {
+  from { transform: rotate(calc(var(--jr, 2deg) * -1)) translateY(-.35px); }
+  to   { transform: rotate(var(--jr, 2deg)) translateY(.35px); }
+}
+.view[data-view="tools"].editing .ib.drag { animation: none; cursor: grabbing; z-index: 5; transition: none; background: rgba(255, 255, 255, .22); box-shadow: 0 8px 18px rgba(0, 0, 0, .55); }
+@media (prefers-reduced-motion: reduce) { .view[data-view="tools"].editing .ib:not([data-act="settings"]) { animation-duration: .6s; } }
 .eyepv { display: inline-flex; gap: 9px; align-items: center; height: 14px; zoom: 1.35; }
 .eyepv i { display: block; width: 7px; height: 11px; border-radius: 50%; background: #fff; animation: eyepv-blink 4.6s infinite; }
 @keyframes eyepv-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
@@ -426,3 +432,14 @@ body.daylight #island .sep { background: rgba(24, 34, 47, .25); }
 .row.trk.now .ic { color: #b9a0ff; }
 .row.music-head { gap: 6px; padding-right: 8px; }
 .row.music-head .ib.small.active { background: #fff; color: #000; }
+
+/* ---- Persian interface: Arabic-script fonts, and the lists under the pill read right to left.
+   The pill itself (icons, time, controls) keeps its order: those are not sentences. */
+body.fa { font-family: "Segoe UI Variable Text", "Segoe UI", Tahoma, system-ui, sans-serif; }
+body.fa #stack-list .row.set { direction: rtl; }
+body.fa #stack-list .row.set .seg,
+body.fa #stack-list .row.set .sws,
+body.fa #stack-list .row.set .eyegrid,
+body.fa #stack-list .row.set .keys,
+body.fa #stack-list .row.set .num { direction: ltr; }
+body.fa #stack-list .row.set.info { direction: ltr; }

@@ -9,7 +9,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::json;
 use windows::Win32::Foundation::*;
-use windows::Win32::UI::HiDpi::GetDpiForWindow;
+use windows::Win32::Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO, MONITORINFOEXW};
+use windows::Win32::UI::HiDpi::{GetDpiForMonitor, GetDpiForWindow, MDT_EFFECTIVE_DPI};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
@@ -51,12 +52,76 @@ unsafe fn apply_style(h: HWND) {
     }
 }
 
-/// Top centre of the primary screen, at the size the current scale asks for.
+/// Set when the chosen display changed: the loop moves the island on its next turn instead of waiting for the timer.
+pub static REPLACE: AtomicBool = AtomicBool::new(false);
+
+/// One connected display.
+pub struct Mon {
+    pub id: String, // the device name Windows gives it (\\.\DISPLAY2): stable across restarts
+    pub rect: RECT,
+    pub primary: bool,
+    pub dpi: u32,
+}
+
+unsafe extern "system" fn mon_cb(m: HMONITOR, _: HDC, _: *mut RECT, data: LPARAM) -> windows::core::BOOL {
+    let list = &mut *(data.0 as *mut Vec<Mon>);
+    let mut mi = MONITORINFOEXW::default();
+    mi.monitorInfo.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
+    if GetMonitorInfoW(m, &mut mi as *mut MONITORINFOEXW as *mut MONITORINFO).as_bool() {
+        let n = mi.szDevice.iter().position(|&c| c == 0).unwrap_or(mi.szDevice.len());
+        let (mut dx, mut dy) = (96u32, 96u32);
+        let _ = GetDpiForMonitor(m, MDT_EFFECTIVE_DPI, &mut dx, &mut dy);
+        list.push(Mon { id: String::from_utf16_lossy(&mi.szDevice[..n]), rect: mi.monitorInfo.rcMonitor, primary: mi.monitorInfo.dwFlags & 1 != 0, dpi: dx.max(96) });
+    }
+    true.into()
+}
+
+/// Every connected display, left to right.
+pub fn monitors() -> Vec<Mon> {
+    let mut list: Vec<Mon> = Vec::new();
+    unsafe {
+        let _ = EnumDisplayMonitors(None, None, Some(mon_cb), LPARAM(&mut list as *mut Vec<Mon> as isize));
+    }
+    list.sort_by_key(|m| (m.rect.left, m.rect.top));
+    list
+}
+
+/// The list the settings page shows: [{ id, label, primary }]. Numbers follow the ones in Windows' display settings.
+pub fn monitors_json() -> serde_json::Value {
+    let list = monitors();
+    json!(list
+        .iter()
+        .map(|m| {
+            let num: String = m.id.chars().filter(|c| c.is_ascii_digit()).collect();
+            json!({ "id": m.id, "n": num, "w": m.rect.right - m.rect.left, "h": m.rect.bottom - m.rect.top, "primary": m.primary })
+        })
+        .collect::<Vec<_>>())
+}
+
+/// The display the user picked in the settings; the primary one when "primary" is chosen or the picked one is unplugged.
+fn target() -> Option<Mon> {
+    let want = crate::settings::get("monitor");
+    let want = want.as_str().unwrap_or("primary");
+    let mut list = monitors();
+    let at = list.iter().position(|m| m.id == want).or_else(|| list.iter().position(|m| m.primary)).or(if list.is_empty() { None } else { Some(0) })?;
+    Some(list.swap_remove(at))
+}
+
+/// The rectangle of the display the island is on (used to tell whether a full-screen app covers it).
+pub fn island_rect() -> Option<RECT> {
+    target().map(|m| m.rect)
+}
+
+/// Top centre of the chosen display, at the size the current scale asks for.
 unsafe fn place(h: HWND) {
-    let scale = GetDpiForWindow(h).max(96) as f64 / 96.0;
+    let (left, top, width, dpi) = match target() {
+        Some(m) => (m.rect.left, m.rect.top, m.rect.right - m.rect.left, m.dpi),
+        None => (0, 0, GetSystemMetrics(SM_CXSCREEN), GetDpiForWindow(h)),
+    };
+    let scale = dpi.max(96) as f64 / 96.0;
     let (w, hgt) = ((WIN_W * scale).round() as i32, (WIN_H * scale).round() as i32);
-    let x = (GetSystemMetrics(SM_CXSCREEN) - w) / 2;
-    let y = OFFSET_Y.load(SeqCst) as i32;
+    let x = left + (width - w) / 2;
+    let y = top + OFFSET_Y.load(SeqCst) as i32;
     let r = sys::rect_of(h);
     if r.left != x || r.top != y || r.right - r.left != w || r.bottom - r.top != hgt {
         let _ = SetWindowPos(h, None, x, y, w, hgt, SWP_NOZORDER | SWP_NOACTIVATE);
@@ -116,7 +181,7 @@ pub fn start() {
                 if tick % 300 == 0 {
                     let _ = SetWindowPos(h, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
                 }
-                if tick % 120 == 0 {
+                if tick % 120 == 0 || REPLACE.swap(false, SeqCst) {
                     place(h);
                 }
             }

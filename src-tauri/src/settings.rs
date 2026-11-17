@@ -29,6 +29,8 @@ fn defaults() -> Map<String, Value> {
         "musicEnabled": true,       // the whole local music player can be switched off
         "playerTheme": true,        // the player window wears the pill's theme (off: plain, in the cover's colour)
         "vaultLength": 18, "vaultSymbols": true, "lastUser": "",
+        "monitor": "primary",       // which display the island sits on: "primary" or a display's device name
+        "lang": "en",               // the interface language: "en" or "fa"
         "skin": "black",            // the resting pill: plain black or one of the animated skins
         "musicTheme": "sky",        // what plays behind the track: "sky" (colours of the cover) or a skin
         "netAlerts": true, "sensorDot": true, "smartCopy": true, "musicReact": true, "autoUpdate": true,
@@ -89,6 +91,17 @@ pub fn apply(key: &str, value: &Value) {
         }
         "calendar" => {
             if let Some(v) = value.as_str().filter(|v| CALENDARS.contains(v)) {
+                put(key, v.into());
+            }
+        }
+        "monitor" => {
+            if let Some(v) = value.as_str().filter(|v| v.len() < 64 && !v.chars().any(|c| c.is_control())) {
+                put(key, v.into());
+                crate::hit::REPLACE.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+        "lang" => {
+            if let Some(v) = value.as_str().filter(|v| ["en", "fa"].contains(v)) {
                 put(key, v.into());
             }
         }

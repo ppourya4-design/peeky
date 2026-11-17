@@ -54,7 +54,7 @@ unsafe fn cover_state(me: u32) -> i32 {
     let c = sys::class_of(root);
     if c == "Progman" || c == "WorkerW" { 0 } else { 1 }
 }
-/// true when the active window fills the whole primary screen (a movie, a game, a presentation)
+/// true when the active window fills the whole screen the island is on (a movie, a game, a presentation)
 unsafe fn foreground_fullscreen(me: u32) -> bool {
     let h = GetForegroundWindow();
     if h.0.is_null() || sys::pid_of(h) == me {
@@ -66,10 +66,18 @@ unsafe fn foreground_fullscreen(me: u32) -> bool {
     }
     let r = sys::rect_of(h);
     let mut mi = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
-    if !GetMonitorInfoW(MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST), &mut mi).as_bool() || mi.dwFlags & 1 == 0 {
-        return false; // the island lives on the primary screen only
+    if !GetMonitorInfoW(MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST), &mut mi).as_bool() {
+        return false;
     }
     let m = mi.rcMonitor;
+    // only a window on the island's own screen matters; another screen's movie leaves the island alone
+    if let Some(mine) = crate::hit::island_rect() {
+        if (mine.left, mine.top, mine.right, mine.bottom) != (m.left, m.top, m.right, m.bottom) {
+            return false;
+        }
+    } else if mi.dwFlags & 1 == 0 {
+        return false;
+    }
     r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom
 }
 

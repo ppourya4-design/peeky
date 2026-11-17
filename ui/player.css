@@ -258,3 +258,6 @@ body.venom .card { box-shadow: none; background: #000; }
 .volpop .vtrack { flex: 1; height: 22px; }
 .volpop #vknob { transform: scale(1); }
 .volpop #vnum { width: 22px; font-size: 11.5px; }
+
+/* ---- Persian interface */
+body.fa { font-family: "Segoe UI Variable Text", "Segoe UI", Tahoma, system-ui, sans-serif; }

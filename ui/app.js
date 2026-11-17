@@ -259,6 +259,7 @@ function startMarquee(box, brisk) {
 
 // ------------------------------------------------------------ status line (copied / charger / Bluetooth / files held)
 function showHud(icon, title, text, ms, tone) {
+  if (window.t) { title = window.t(title); text = window.t(text); }
   if (st.hideVideo && st.full) return;            // never interrupt a fullscreen film or game for this
   const ic = $('#h-icon');
   ic.innerHTML = svg(icon); ic.dataset.cur = icon; ic.className = 'glyph' + (tone ? ' ' + tone : ''); ic.style.color = '';
@@ -283,6 +284,7 @@ views.hud.addEventListener('click', () => {
 // ------------------------------------------------------------ notifications (same line, then back)
 function showNotif(n) {
   if (!n.title && !n.body) return;
+  if (window.t && n.local !== false && (n.app === 'Welcome' || n.app === 'Tip' || n.app === 'Update' || n.app === 'Battery' || n.app === 'Timer' || n.app === 'Download finished')) n = { ...n, app: window.t(n.app), title: window.t(n.title), body: window.t(n.body) };
   st.queue.push(n);
   if (st.queue.length > 6) st.queue.shift();
   if (!st.notif && !sideN) nextNotif();
@@ -1830,8 +1832,13 @@ seekEl.addEventListener('pointercancel', () => endScrub(false));
 
 // ------------------------------------------------------------ clock / date / battery
 const pad = (n) => String(n).padStart(2, '0');
-const fWeek = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
-const fGreg = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
+let fWeek = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
+let fGreg = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
+document.addEventListener('langchange', (e) => {      // Gregorian weekday and month in the interface language
+  const loc = e.detail === 'fa' ? 'fa-IR-u-ca-gregory' : 'en-GB';
+  fWeek = new Intl.DateTimeFormat(loc, { weekday: 'short' }); fGreg = new Intl.DateTimeFormat(loc, { day: 'numeric', month: 'short' });
+  const td = $('#t-date'); if (td) td.textContent = ''; tick();
+});
 const fShamsi = new Intl.DateTimeFormat('en-US-u-ca-persian-nu-latn', { day: 'numeric', month: 'long' });
 const fShamsiFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long' });
 const parts = (f, d) => Object.fromEntries(f.formatToParts(d).map((p) => [p.type, p.value]));
@@ -1915,71 +1922,119 @@ function applyToolOrder(order) {
     .sort((x, y) => ((pos.get(toolKey(x[0])) ?? 99) - (pos.get(toolKey(y[0])) ?? 99)) || (x[1] - y[1]))
     .forEach(([b]) => toolView.appendChild(b));
 }
-let toolEdit = null;   // { prevManual, idle } while the row is being arranged
-function enterToolEdit() {
+const HOLD_MS = 3000;                      // hold a tool this long and the row becomes arrangeable
+let toolEdit = null;                       // { prevManual, idle } while the row is being arranged
+let pressTimer = null, pressXY = null, pressBtn = null, pressId = 0, lastX = 0;
+let dragBtn = null, dragFrom = 0;
+const settingsBtn = () => toolView.querySelector('[data-act="settings"]');
+const keepSettingsLast = () => { const g = settingsBtn(); if (g && g !== toolView.lastElementChild) toolView.appendChild(g); };   // the gear never moves: it is how you finish
+
+function cancelHold() {
+  clearTimeout(pressTimer); pressTimer = null; pressXY = null;
+  if (pressBtn) { pressBtn.classList.remove('holding'); pressBtn = null; }
+}
+// Every tool gets its own small lean and tempo, so the row shakes like a handful of loose tiles and not like one machine
+function jiggleSetup() {
+  toolView.querySelectorAll('.ib').forEach((b) => {
+    b.style.setProperty('--jr', (1.5 + Math.random() * 1.1).toFixed(2) + 'deg');
+    b.style.setProperty('--jd', (-Math.random() * 0.3).toFixed(3) + 's');
+    b.style.setProperty('--jt', (0.2 + Math.random() * 0.09).toFixed(3) + 's');
+  });
+}
+function enterToolEdit(b, pointerId) {
   if (toolEdit) return;
   toolEdit = { prevManual: st.manual, idle: Date.now() };
   st.manual = 'tools';
+  jiggleSetup();
   toolView.classList.add('editing');
   const sh = $('#t-shelf'); if (sh) sh.draggable = false;
   render();
+  if (b && b !== settingsBtn()) {
+    // the finger is still down: the same press carries on as a drag
+    b.classList.remove('holding');
+    try { b.animate([{ transform: 'scale(.9)' }, { transform: 'scale(1.22)' }, { transform: 'scale(1)' }], { duration: 300, easing: 'cubic-bezier(.3,1.4,.5,1)' }); } catch { /* old engines: no pop */ }
+    dragBtn = b; dragFrom = lastX;
+    try { b.setPointerCapture(pointerId); } catch { /* the mouse needs no capture */ }
+  }
 }
 function exitToolEdit() {
   if (!toolEdit) return;
+  if (dragBtn) { dragBtn.classList.remove('drag'); dragBtn.style.transform = ''; dragBtn = null; }
   st.manual = toolEdit.prevManual; toolEdit = null;
   toolView.classList.remove('editing');
   const sh = $('#t-shelf'); if (sh) sh.draggable = true;
   render();
 }
-setInterval(() => { if (toolEdit && Date.now() - toolEdit.idle > 10000) exitToolEdit(); }, 500);
-let pressTimer = null, pressXY = null, dragBtn = null, dragFrom = 0;
+setInterval(() => { if (toolEdit && !dragBtn && Date.now() - toolEdit.idle > 15000) { saveToolOrder(); exitToolEdit(); } }, 500);
+
 toolView.addEventListener('pointerdown', (e) => {
   const b = e.target.closest('.ib');
   if (toolEdit) {
-    if (!b) { exitToolEdit(); return; }
-    dragBtn = b; dragFrom = e.clientX;
-    try { b.setPointerCapture(e.pointerId); } catch { /* mouse needs no capture */ }
+    if (!b || b === settingsBtn()) { saveToolOrder(); exitToolEdit(); return; }    // a tap on the gear or on empty space is "done"
+    toolEdit.idle = Date.now();
+    dragBtn = b; dragFrom = e.clientX; lastX = e.clientX; pressId = e.pointerId;
+    try { b.setPointerCapture(e.pointerId); } catch { /* the mouse needs no capture */ }
     return;
   }
-  if (!b) return;
-  pressXY = [e.clientX, e.clientY];
-  clearTimeout(pressTimer);
-  pressTimer = setTimeout(enterToolEdit, 3000);
+  if (!b || e.button > 0) return;
+  cancelHold();
+  pressXY = [e.clientX, e.clientY]; lastX = e.clientX; pressId = e.pointerId; pressBtn = b;
+  b.classList.add('holding');                 // a slow press-in: it is about to do something
+  pressTimer = setTimeout(() => { const hb = pressBtn; pressTimer = null; pressXY = null; pressBtn = null; enterToolEdit(hb, pressId); }, HOLD_MS);
 });
+
+// the others slide aside instead of jumping (FLIP: note where they were, move the node, play the difference)
+function reorderTo(btn, ref) {
+  const sibs = [...toolView.querySelectorAll('.ib:not(.hidden)')].filter((x) => x !== btn);
+  const was = new Map(sibs.map((x) => [x, x.getBoundingClientRect().left]));
+  toolView.insertBefore(btn, ref);
+  keepSettingsLast();
+  try { btn.setPointerCapture(pressId); } catch { /* moving a node drops the capture: take it again */ }
+  for (const x of sibs) {
+    const d = was.get(x) - x.getBoundingClientRect().left;
+    if (d) x.animate([{ transform: `translateX(${d}px)` }, { transform: 'translateX(0)' }], { duration: 190, easing: 'cubic-bezier(.3,1.2,.5,1)' });
+  }
+}
 toolView.addEventListener('pointermove', (e) => {
-  if (pressXY && Math.hypot(e.clientX - pressXY[0], e.clientY - pressXY[1]) > 24) { clearTimeout(pressTimer); pressXY = null; }
+  lastX = e.clientX;
+  if (pressXY && Math.hypot(e.clientX - pressXY[0], e.clientY - pressXY[1]) > 14) cancelHold();       // moving before the time is up is not a hold
   if (!dragBtn) return;
   const dx = e.clientX - dragFrom;
   if (!dragBtn.classList.contains('drag') && Math.abs(dx) < 5) return;
   dragBtn.classList.add('drag');
-  dragBtn.style.transform = `translateX(${dx}px)`;
+  dragBtn.style.transform = `translateX(${dx}px) scale(1.12)`;
   const r = dragBtn.getBoundingClientRect(), center = r.left + r.width / 2, before = dragBtn.offsetLeft;
+  const gear = settingsBtn();
   for (const sib of toolView.querySelectorAll('.ib:not(.hidden)')) {
-    if (sib === dragBtn) continue;
+    if (sib === dragBtn || sib === gear) continue;
     const sr = sib.getBoundingClientRect(), sc = sr.left + sr.width / 2;
-    if (center < sc && (dragBtn.compareDocumentPosition(sib) & Node.DOCUMENT_POSITION_FOLLOWING)) { toolView.insertBefore(dragBtn, sib); break; }
-    if (center > sc && (dragBtn.compareDocumentPosition(sib) & Node.DOCUMENT_POSITION_PRECEDING)) { toolView.insertBefore(dragBtn, sib.nextSibling); break; }
+    if (center < sc && (dragBtn.compareDocumentPosition(sib) & Node.DOCUMENT_POSITION_FOLLOWING)) { reorderTo(dragBtn, sib); break; }
+    if (center > sc && (dragBtn.compareDocumentPosition(sib) & Node.DOCUMENT_POSITION_PRECEDING)) { reorderTo(dragBtn, sib.nextSibling); break; }
   }
   const shift = dragBtn.offsetLeft - before;
-  if (shift) { dragFrom += shift; dragBtn.style.transform = `translateX(${e.clientX - dragFrom}px)`; }
+  if (shift) { dragFrom += shift; dragBtn.style.transform = `translateX(${e.clientX - dragFrom}px) scale(1.12)`; }
 });
-const saveToolOrder = () => window.qazi.setSetting('toolOrder', [...toolView.querySelectorAll('.ib')].map(toolKey));
+function saveToolOrder() { window.qazi.setSetting('toolOrder', [...toolView.querySelectorAll('.ib')].map(toolKey)); }
 const endToolPress = () => {
-  clearTimeout(pressTimer); pressXY = null;
+  cancelHold();
   if (!dragBtn) return;
   const wasDrag = dragBtn.classList.contains('drag');
-  dragBtn.classList.remove('drag'); dragBtn.style.transform = ''; dragBtn = null;
+  const b = dragBtn; dragBtn = null;
+  b.classList.remove('drag'); b.style.transform = '';
   if (toolEdit) {
     toolEdit.idle = Date.now();
-    if (wasDrag) saveToolOrder();
+    if (wasDrag) {            // it lands with a small settle
+      saveToolOrder();
+      try { b.animate([{ transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' }); } catch { /* no settle */ }
+    }
   }
 };
 // the mouse leaving the pill ends the arranging: the order is saved and the row settles
-island.addEventListener('pointerleave', () => { if (toolEdit) { saveToolOrder(); exitToolEdit(); } });
+island.addEventListener('pointerleave', () => { cancelHold(); if (toolEdit) { saveToolOrder(); exitToolEdit(); } });
 toolView.addEventListener('pointerup', endToolPress);
 toolView.addEventListener('pointercancel', endToolPress);
 toolView.addEventListener('click', (e) => { if (toolEdit) { e.stopPropagation(); e.preventDefault(); } }, true);
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && toolEdit) exitToolEdit(); });
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && toolEdit) { saveToolOrder(); exitToolEdit(); } });
 
 // ------------------------------------------------------------ timer
 function beep(vol = 0.25, rounds = 1) {
@@ -2345,6 +2400,8 @@ function renderSpeedo() {
 // ------------------------------------------------------------ settings, as rows under the pill
 const SETTINGS_UI = [
   ['button', 'tour', 'What Poyzen can do', 'Show me'],
+  ['seg', 'lang', 'Language', [['en', 'English'], ['fa', 'فارسی']]],
+  ['monitor', 'monitor', 'Screen'],
   ['button', 'music', 'Local music', 'Open'],
   ['toggle', 'musicEnabled', 'Music player'],
   ['toggle', 'autoStart', 'Start with Windows'],
@@ -2418,6 +2475,17 @@ function renderSettings() {
       const mk = (icon, d) => { const bt = document.createElement('button'); bt.className = 'ib small'; bt.innerHTML = svg(icon); bt.addEventListener('click', () => window.qazi.setSetting(key, clamp(cur + d, a, b))); return bt; };
       const num = document.createElement('span'); num.className = 'num'; num.textContent = cur + unit;
       row.append(mk('minus', -1), num, mk('plus', 1));
+    } else if (type === 'monitor') {
+      // which display the island sits on: Primary, or one of the connected screens (numbers as in Windows' display settings)
+      const seg = document.createElement('div'); seg.className = 'seg'; row.appendChild(seg);
+      const pick = s.monitor || 'primary';
+      const add = (val, text, tip) => { const bt = document.createElement('button'); bt.textContent = text; if (tip) bt.title = tip; if (pick === val) bt.className = 'on'; bt.addEventListener('click', () => window.qazi.setSetting(key, val)); seg.appendChild(bt); };
+      add('primary', 'Primary');
+      window.qazi.monitorsGet().then((list) => {
+        if (!seg.isConnected || !Array.isArray(list)) return;
+        list.forEach((m) => { if (!m.primary || list.length > 1) add(m.id, (m.n || '?') + (m.primary ? ' ★' : ''), m.w + '×' + m.h); });
+        if (pick !== 'primary' && !list.some((m) => m.id === pick)) { const b0 = seg.firstChild; if (b0) b0.className = 'on'; }   // the picked screen is unplugged: the island is on the primary one
+      });
     } else if (type === 'button') {
       const bt = document.createElement('button'); bt.className = 'go'; bt.textContent = a; bt.addEventListener('click', () => { if (key === 'tour') setStack(true, 'tour'); else if (key === 'music') setStack(true, 'music'); else window.qazi.action(key); });
       row.appendChild(bt);
