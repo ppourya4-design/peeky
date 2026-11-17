@@ -49,7 +49,7 @@ And also:
 
 ## Install
 
-Download **[Peeky-Setup.exe](https://github.com/ppourya4-design/poyzen/releases/latest/download/Poyzen-Setup.exe)** and run it.
+Download **[Poyzen-Setup.exe](https://github.com/ppourya4-design/poyzen/releases/latest/download/Poyzen-Setup.exe)** and run it.
 It installs for the current user only (no administrator prompt) and starts with Windows; both can be changed in the settings.
 
 Windows 10 or 11 with the WebView2 runtime (already part of Windows 11 and of current Windows 10).
@@ -110,7 +110,7 @@ Windows today. A Linux version is being worked on; the backend talks to Windows 
 
 ### نصب
 
-فایل **[Peeky-Setup.exe](https://github.com/ppourya4-design/poyzen/releases/latest/download/Poyzen-Setup.exe)** را دانلود و اجرا کن.
+فایل **[Poyzen-Setup.exe](https://github.com/ppourya4-design/poyzen/releases/latest/download/Poyzen-Setup.exe)** را دانلود و اجرا کن.
 فقط برای کاربر فعلی نصب می‌شود و دسترسی ادمین نمی‌خواهد.
 
 ### حریم خصوصی
