@@ -242,6 +242,41 @@ function saveResume(posMs) {
   lsSet('peeky.mob.resume', { path: tr.path, pos: Math.round(posMs != null ? posMs : audio.currentTime * 1000) || 0 });
 }
 
+// ------------------------------------------------------------ the persisted library
+// v2 rebuilt the library from raw paths on every launch and re-read every file's tags
+// in the background, so each cold start looked like a fresh scan. The library is now
+// cached — [path, title, artist, durationMs, hasCover, thumb, indexed] per track — and
+// rendered instantly at boot; scan() then only diffs the phone against this cache.
+const LIB_KEY = 'peeky.lib.v1';
+let libSaveAt = 0, libSaveTimer = 0;
+function saveLibCache(force) {
+  const now = Date.now();
+  if (!force && now - libSaveAt < 2500) {          // debounce like the tag cache, but never drop the last write
+    clearTimeout(libSaveTimer);
+    libSaveTimer = setTimeout(() => saveLibCache(true), 2600);
+    return;
+  }
+  libSaveAt = now;
+  const rows = P.list.map((tr) => [tr.path, tr.title, tr.artist, Math.round(tr.dur || 0), (tr.coverB64 || tr.thumb) ? 1 : 0, tr.thumb || '', tr.tagged ? 1 : 0]);
+  try { localStorage.setItem(LIB_KEY, JSON.stringify(rows)); }
+  catch {                                          // over quota: keep the metadata, drop the thumbs
+    try { localStorage.setItem(LIB_KEY, JSON.stringify(rows.map((r) => [r[0], r[1], r[2], r[3], r[4], '', r[6]]))); } catch { /* blocked */ }
+  }
+}
+function loadLibCache() {
+  let rows = null;
+  try { rows = JSON.parse(localStorage.getItem(LIB_KEY) || 'null'); } catch { rows = null; }
+  if (!Array.isArray(rows) || !rows.length) return false;
+  P.list = rows.filter((r) => Array.isArray(r) && r[0]).map((r) => {
+    const named = nameOf(r[0]);
+    return { path: r[0], title: r[1] || named.title, artist: r[2] || named.artist, dur: Number(r[3]) || 0, thumb: r[5] || '', coverB64: null, tagged: !!r[6] };
+  });
+  if (!P.list.length) return false;
+  $('#count').textContent = P.list.length + ' songs';
+  applyFilter();
+  return true;
+}
+
 // ------------------------------------------------------------ media notification (tauri-plugin-media)
 // The native foreground service renders the notification + media session from what we push here;
 // its buttons come back through a Channel registered as the plugin's "media-action" listener.
@@ -254,7 +289,7 @@ function coverPngOf(b64) {
     img.src = 'data:' + imgMime(b64) + ';base64,' + b64;
   });
 }
-const mediaInvoke = (c, a) => { try { return call('plugin:media|' + c, a).catch(() => {}); } catch { return Promise.resolve(); } };
+const mediaInvoke = (c, a) => { try { return call('plugin:media|' + c, a).catch((e) => { try { console.warn('media|' + c + ' failed', e); } catch { /* no console */ } }); } catch { return Promise.resolve(); } };
 let mediaOn = false, mediaCoverKey = null, mediaCoverPng = null, mediaBusy = false, mediaAgain = false;
 function pushMedia() {
   if (mediaBusy) { mediaAgain = true; return; }
@@ -272,12 +307,15 @@ function pushMedia() {
       mediaCoverPng = key ? await coverPngOf(P.cover) : null;
       cover = mediaCoverPng;
     }
-    await mediaInvoke('update', {
+    // the Rust command takes the state as one argument named `payload`, and Tauri
+    // matches invoke arguments by name — without this wrapper every call is rejected
+    // (that is why the v2 notification never appeared: the service never started).
+    await mediaInvoke('update', { payload: {
       title: P.title || '', artist: P.artist || '', playing: S.playing,
       durationMs: Math.round(S.dur || 0), positionMs: Math.round((audio.currentTime || 0) * 1000),
       hasNext: P.list.length > 1, hasPrev: P.list.length > 1,
       cover, coverKey: key,
-    });
+    } });
   })().then(() => { mediaBusy = false; if (mediaAgain) { mediaAgain = false; pushMedia(); } });
 }
 try {
@@ -318,8 +356,9 @@ async function playTrack(i, autoplay = true, resumePos = 0) {
   if (tags.title || tags.artist) { tagCache[tr.path] = [tr.title, tr.artist]; saveTagCache(); updateRow(i); }
   if (tags.cover) {
     P.cover = tags.cover; tr.coverB64 = tags.cover;
-    thumbOf(tags.cover).then((t) => { if (t) { tr.thumb = t; updateRow(i); } });
+    thumbOf(tags.cover).then((t) => { if (t) { tr.thumb = t; updateRow(i); saveLibCache(); } });
   }
+  if (tags.title || tags.artist || tags.cover) saveLibCache();
   if (P.url) URL.revokeObjectURL(P.url);
   P.url = URL.createObjectURL(new Blob([buf], { type: MIME[ext.toLowerCase()] || '' }));
   audio.src = P.url;
@@ -366,7 +405,12 @@ audio.addEventListener('ended', () => {
 });
 audio.addEventListener('play', () => { paintState(); });
 audio.addEventListener('pause', () => { paintState(); saveResume(); });
-audio.addEventListener('loadedmetadata', () => { S.dur = isFinite(audio.duration) ? audio.duration * 1000 : 0; paintState(); });
+audio.addEventListener('loadedmetadata', () => {
+  S.dur = isFinite(audio.duration) ? audio.duration * 1000 : 0;
+  const tr = P.list[P.idx];                        // remember the duration in the library cache
+  if (tr && S.dur > 0 && tr.dur !== Math.round(S.dur)) { tr.dur = Math.round(S.dur); saveLibCache(); }
+  paintState();
+});
 audio.addEventListener('error', () => { if (P.on && !P.loading && audio.src) failTrack(); });
 setInterval(() => { if (P.on && !audio.paused) saveResume(); }, 5000);
 setInterval(() => { if (P.on && !audio.paused) pushMedia(); }, 4000);   // keep the notification's position fresh
@@ -473,6 +517,7 @@ async function indexOne(i, gen) {
   if (tags.artist && tags.artist !== tr.artist) { tr.artist = tags.artist; changed = true; }
   if (tags.title || tags.artist) { tagCache[tr.path] = [tr.title, tr.artist]; saveTagCache(); }
   if (tags.cover) { tr.coverB64 = tags.cover; tr.thumb = await thumbOf(tags.cover); if (tr.thumb) changed = true; }
+  if (tags.title || tags.artist || tags.cover) saveLibCache();
   if (!changed || gen !== P.scanGen) return;
   if (P.idx === i) { P.title = tr.title; P.artist = tr.artist; if (!P.cover && tr.coverB64) P.cover = tr.coverB64; paintState(); feedAurora(); }
   updateRow(i);
@@ -498,18 +543,24 @@ async function scan() {
   P.scanning = true; P.scanGen++;
   const gen = P.scanGen;
   renderList();
-  const paths = await call('music_scan').catch(() => []);
+  let paths = null;
+  try { paths = await call('music_scan'); } catch { paths = null; }
   if (gen !== P.scanGen) return;
+  if (!Array.isArray(paths)) { P.scanning = false; renderList(); return; }   // scan failed: keep the cached library as-is
   const curPath = P.idx >= 0 && P.list[P.idx] ? P.list[P.idx].path : null;
-  P.list = (Array.isArray(paths) ? paths : []).map((path) => {
+  const old = new Map(P.list.map((tr) => [tr.path, tr]));
+  P.list = paths.map((path) => {
+    const prev = old.get(path);
+    if (prev) return prev;                       // unchanged file: keep its names, thumb, duration and indexed flag
     const named = nameOf(path), hit = tagCache[path];
-    return { path, title: (hit && hit[0]) || named.title, artist: (hit && hit[1]) || named.artist, thumb: '', coverB64: null, tagged: false };
+    return { path, title: (hit && hit[0]) || named.title, artist: (hit && hit[1]) || named.artist, dur: 0, thumb: '', coverB64: null, tagged: false };
   });
   P.scanning = false;
   if (curPath) { P.idx = P.list.findIndex((t) => t.path === curPath); lastIdx = -2; }
   $('#count').textContent = P.list.length ? P.list.length + ' songs' : '';
   applyFilter(); paintState();
-  indexTags(gen);
+  saveLibCache(true);
+  indexTags(gen);                                // the queue only holds tracks that are new or never indexed
 }
 $('#rescan').addEventListener('click', () => scan());
 
@@ -869,18 +920,21 @@ let loopPos = -1, loopSec = -1;
   if (sec !== loopSec) { loopSec = sec; $('#t-now').textContent = fmt(pos); $('#t-all').textContent = fmt(dur); }
 })();
 
-// ------------------------------------------------------------ boot: scan, then cue the last track where he left it
+// ------------------------------------------------------------ boot: cached library first, rescan behind it
 paintVol();
 paintState();
 setLyr('idle');
 (async () => {
-  await scan();
-  try {
-    const r = lsGet('peeky.mob.resume', null);
-    if (r && r.path) {
-      const i = P.list.findIndex((t) => t.path === r.path);
-      if (i >= 0) playTrack(i, false, r.pos || 0);
-    }
-  } catch { /* nothing to resume */ }
+  const cueResume = () => {
+    try {
+      const r = lsGet('peeky.mob.resume', null);
+      if (r && r.path) {
+        const i = P.list.findIndex((t) => t.path === r.path);
+        if (i >= 0) playTrack(i, false, r.pos || 0);
+      }
+    } catch { /* nothing to resume */ }
+  };
+  if (loadLibCache()) { cueResume(); scan(); }    // instant list from the cache; the rescan only diffs in the background
+  else { await scan(); cueResume(); }             // first launch ever: nothing cached yet
 })();
 })();
