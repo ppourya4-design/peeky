@@ -324,9 +324,6 @@ body.venom #island { box-shadow: none; }
 /* sad: the lid slopes the other way */
 #i-face[data-eyes="sad"] i, .eyepv[data-eyes="sad"] i { width: 8px; height: 9px; border-radius: 1px 1px 50% 50% / 1px 1px 70% 70%; clip-path: polygon(0 30%, 100% 0, 100% 100%, 0 100%); }
 #i-face[data-eyes="sad"] i:last-child, .eyepv[data-eyes="sad"] i:last-child { clip-path: polygon(0 0, 100% 30%, 100% 100%, 0 100%); }
-#i-face[data-eyes="glow"] i, .eyepv[data-eyes="glow"] i { width: 8px; height: 8px; box-shadow: 0 0 5px 1px rgba(255, 255, 255, .75); }
-#i-face[data-eyes="dot"] i, .eyepv[data-eyes="dot"] i { width: 5px; height: 5px; }
-#i-face[data-eyes="tall"] i, .eyepv[data-eyes="tall"] i { width: 4px; height: 13px; border-radius: 3px; }
 #i-face[data-eyes="robot"] i, .eyepv[data-eyes="robot"] i { width: 8px; height: 8px; border-radius: 2px; }
 #i-face[data-eyes="wide"] i, .eyepv[data-eyes="wide"] i { width: 11px; height: 6px; border-radius: 3px; }
 /* the moods stay the same whatever the eye style */
@@ -335,13 +332,16 @@ body.venom #island { box-shadow: none; }
 
 /* the picker row in Settings */
 .row.set.eyes { height: auto; flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 10px 11px; border-radius: 20px; }
-.eyegrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
-.eyeopt { height: 44px; border-radius: 14px; background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); display: grid; place-items: center; transition: transform .2s var(--spring), box-shadow .15s; }
+.eyegrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.eyeopt { height: 36px; border-radius: 12px; background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); display: grid; place-items: center; transition: transform .2s var(--spring), box-shadow .15s; }
 .eyeopt:hover { transform: scale(1.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45); }
 .eyeopt.on { box-shadow: inset 0 0 0 2px #a98bff; }
-.eyepv { display: inline-flex; gap: 9px; align-items: center; height: 14px; zoom: 1.9; }
+.eyepv { display: inline-flex; gap: 9px; align-items: center; height: 14px; zoom: 1.35; }
 .eyepv i { display: block; width: 7px; height: 11px; border-radius: 50%; background: #fff; animation: eyepv-blink 4.6s infinite; }
 @keyframes eyepv-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+/* hovering a tile previews that style's life: a blink, then a look left and right */
+.eyeopt:hover .eyepv i { animation: eyepv-peek 1.7s ease-in-out infinite; }
+@keyframes eyepv-peek { 0%, 100% { transform: translateX(0) scaleY(1); } 10% { transform: translateX(0) scaleY(.1); } 20% { transform: translateX(0) scaleY(1); } 45% { transform: translateX(-2.5px) scaleY(1); } 70% { transform: translateX(2.5px) scaleY(1); } 86% { transform: translateX(0) scaleY(.1); } 94% { transform: translateX(0) scaleY(1); } }
 
 .sw-venom { background: radial-gradient(circle at 32% 30%, #e6eaf2 0 9%, #3a3d47 22%, #000 60%); }
 .sws { gap: 4px; }

@@ -2244,7 +2244,7 @@ const SETTINGS_UI = [
   ['toggle', 'smartCopy', 'Smart copy: links, sums, dates'],
   ['toggle', 'noteHotkey', 'Ctrl+Alt+N note · Ctrl+Alt+T text grab'],
 ];
-const EYE_STYLES = ['round', 'venom', 'sleepy', 'sad', 'glow', 'dot', 'tall', 'robot', 'wide'];   // drawn in style.css, picked in Settings
+const EYE_STYLES = ['round', 'venom', 'sleepy', 'sad', 'robot', 'wide'];   // drawn in style.css, picked in Settings
 function renderSettings() {
   $('#stack-clear').classList.add('hidden');
   const s = st.settings || {};

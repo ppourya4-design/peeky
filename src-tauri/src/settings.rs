@@ -12,7 +12,7 @@ use crate::sys;
 static SETTINGS: Mutex<Option<Map<String, Value>>> = Mutex::new(None);
 const THEMES: [&str; 10] = ["black", "nebula", "crystal", "ember", "reactor", "venom", "cloud", "water", "lava", "ice"];
 const BOOLS: [&str; 18] = ["autoUpdate", "musicReact", "netAlerts", "sensorDot", "smartCopy", "autoHide", "hideVideo", "copyPreview", "clipHistory", "deviceAlerts", "downloadAlerts", "shelf", "visuals", "noteHotkey", "vaultSymbols", "musicShuffle", "musicEnabled", "playerTheme"];
-const EYE_STYLES: [&str; 9] = ["round", "venom", "sleepy", "sad", "glow", "dot", "tall", "robot", "wide"];
+const EYE_STYLES: [&str; 6] = ["round", "venom", "sleepy", "sad", "robot", "wide"];
 const CALENDARS: [&str; 4] = ["gregorian", "shamsi", "shamsi-fa", "both"];
 
 fn defaults() -> Map<String, Value> {
