@@ -23,7 +23,10 @@ abstract class BuildTask : DefaultTask() {
 
     @TaskAction
     fun assemble() {
-        val executable = """node""";
+        // Peeky patch: the generated task ran `node tauri …`, which makes node hunt for a
+        // script literally named "tauri" in this folder and fail (tauri-apps/tauri#13892).
+        // The Tauri CLI is a real executable on PATH (npm -g in CI, cargo or npm locally): call it directly.
+        val executable = """tauri""";
         try {
             runTauriCli(executable)
         } catch (e: Exception) {
@@ -55,7 +58,7 @@ abstract class BuildTask : DefaultTask() {
         val rootDirRel = rootDirRel ?: throw GradleException("rootDirRel cannot be null")
         val target = target ?: throw GradleException("target cannot be null")
         val release = release ?: throw GradleException("release cannot be null")
-        val args = listOf("tauri", "android", "android-studio-script");
+        val args = listOf("android", "android-studio-script");
 
         execOperations.exec {
             workingDir(File(projectDir, rootDirRel))
