@@ -1,5 +1,6 @@
 package com.plugin.media
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -23,6 +24,8 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
+import android.util.Log
+import java.io.File
 
 /**
  * Foreground service that OWNS playback: a native [MediaPlayer] lives here,
@@ -46,6 +49,12 @@ class MediaService : Service() {
   private var ducked = false
   private var noisyReceiver: BroadcastReceiver? = null
 
+  // ---- auto-resume after process death (see PlaybackPersist): the intent
+  // flag is kept apart from MediaStore.playing — a transient focus pause
+  // keeps it true, a user pause / stop / playlist end / error clears it
+  private var persistWasPlaying = false
+  private var lastPersistAt = 0L
+
   private val handler = Handler(Looper.getMainLooper())
   private val ticker = object : Runnable {
     override fun run() {
@@ -62,7 +71,7 @@ class MediaService : Service() {
       }
       AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
         resumeOnGain = MediaStore.playing
-        pausePlayback(abandon = false)
+        pausePlayback(abandon = false, resumeAfterDeath = true)
       }
       AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
         ducked = true
@@ -115,13 +124,6 @@ class MediaService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    // A null intent means the system restarted us (START_STICKY) after killing
-    // the process. The store starts empty in a fresh process — no track, no
-    // pending play — so there is nothing to play: don't linger as a zombie.
-    if (intent == null && MediaStore.path.isEmpty() && MediaStore.pendingPath == null) {
-      stopSelf()
-      return START_NOT_STICKY
-    }
     // a play request from the plugin takes effect before anything else
     val pending = MediaStore.pendingPath
     if (pending != null) {
@@ -134,6 +136,18 @@ class MediaService : Service() {
         MediaStore.pendingAutoplay,
         MediaStore.pendingStartMs
       )
+    } else if (player == null && MediaStore.path.isEmpty()) {
+      // Fresh process: the system killed us (recents swipe / LMK) and either
+      // START_STICKY (null intent) or the onTaskRemoved alarm brought us
+      // back. The in-memory store starts empty, so resume the persisted
+      // playback if it was playing when we died. Nothing persisted as
+      // playing -> a restart-only start (null intent / the alarm) is the
+      // old zombie case (nothing can actually play): stop instead of
+      // posting a dead notification.
+      if (!tryResumeFromPersist() && (intent == null || intent.action == ACTION_RESUME)) {
+        stopSelf()
+        return START_NOT_STICKY
+      }
     }
     when (intent?.action) {
       ACTION_PLAY -> playCurrent()
@@ -148,7 +162,7 @@ class MediaService : Service() {
         val pos = intent.getLongExtra(EXTRA_SEEK, -1L)
         if (pos >= 0) seekTo(pos)
       }
-      // ACTION_UPDATE / ACTION_TIMER / null: state already reflects the change
+      // ACTION_UPDATE / ACTION_TIMER / ACTION_RESUME / null: state already reflects the change
     }
     // (re)post the foreground notification with the freshest state
     goForeground()
@@ -166,7 +180,86 @@ class MediaService : Service() {
     } catch (e: Exception) {
       // if the promotion fails the system may still keep the service; never crash here
     }
+    // Belt-and-braces for OEM task killers: if the process is reaped anyway,
+    // this alarm restarts the service ~1.5s later and onStartCommand
+    // auto-resumes from the persisted snapshot (the START_STICKY restart is
+    // the other path to the same resume).
+    scheduleRestart()
     super.onTaskRemoved(rootIntent)
+  }
+
+  private fun scheduleRestart() {
+    try {
+      val am = getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+      val i = Intent(this, MediaService::class.java).setAction(ACTION_RESUME)
+      val pi = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        PendingIntent.getForegroundService(
+          this, REQ_RESTART, i,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+      } else {
+        PendingIntent.getService(
+          this, REQ_RESTART, i,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+      }
+      am.setAndAllowWhileIdle(
+        AlarmManager.ELAPSED_REALTIME_WAKEUP,
+        SystemClock.elapsedRealtime() + 1500, pi
+      )
+    } catch (e: Exception) {
+      // OEM alarm restrictions: the sticky restart remains as the fallback
+    }
+  }
+
+  // ------------------------------------------------------------ persistence
+
+  /**
+   * Snapshot the playback state so a fresh process can resume it. Forced on
+   * every transition; the ticker's calls are throttled to one write per 5s
+   * (position freshness is all they add).
+   */
+  private fun persistSnapshot(force: Boolean = false) {
+    val now = SystemClock.elapsedRealtime()
+    if (!force && now - lastPersistAt < 5000) return
+    lastPersistAt = now
+    PlaybackPersist.save(
+      applicationContext,
+      PlaybackPersist.Snapshot(
+        path = MediaStore.path,
+        title = MediaStore.title,
+        artist = MediaStore.artist,
+        positionMs = MediaStore.positionMs,
+        wasPlaying = persistWasPlaying,
+        nextPath = MediaStore.nextPath,
+        nextTitle = MediaStore.nextTitle,
+        nextArtist = MediaStore.nextArtist
+      )
+    )
+  }
+
+  /**
+   * Bring back the persisted playback in a fresh process. Only a record
+   * that was playing (or transiently focus-paused) when the old process
+   * died resumes — a user pause / stop / playlist end persisted false.
+   * The resumed track lands in the store through loadTrack(), so the
+   * WebView's `state` adopt path picks it up like any native advance.
+   */
+  private fun tryResumeFromPersist(): Boolean {
+    val snap = PlaybackPersist.read(applicationContext)
+    if (!snap.wasPlaying || snap.path.isEmpty()) return false
+    if (!File(snap.path).canRead()) {
+      PlaybackPersist.clear(applicationContext)
+      return false
+    }
+    if (snap.nextPath != null) {
+      MediaStore.nextPath = snap.nextPath
+      MediaStore.nextTitle = snap.nextTitle
+      MediaStore.nextArtist = snap.nextArtist
+    }
+    Log.i(TAG, "auto-resume after process death: ${snap.path} at ${snap.positionMs}ms")
+    loadTrack(snap.path, snap.title, snap.artist, 0, true, snap.positionMs)
+    return true
   }
 
   /** Promote to foreground, passing the mediaPlayback type explicitly on API 29+. */
@@ -219,6 +312,8 @@ class MediaService : Service() {
     MediaStore.durationMs = durHint
     MediaStore.positionMs = startMs
     MediaStore.playing = false
+    persistWasPlaying = autoplay   // a track cued paused must not auto-play after a process death
+    persistSnapshot(force = true)
     releasePlayer()
     val p = MediaPlayer()
     player = p
@@ -280,10 +375,19 @@ class MediaService : Service() {
       return
     }
     MediaStore.playing = true
+    persistWasPlaying = true
+    persistSnapshot(force = true)
     applyState()
   }
 
-  private fun pausePlayback(abandon: Boolean = true) {
+  /**
+   * [resumeAfterDeath] is true only for a transient audio-focus pause: the
+   * user never asked for this stop, so if the process dies mid-pause the
+   * persisted snapshot still counts as "was playing" and auto-resumes.
+   * Every other caller (user pause, noisy, sleep timer, permanent focus
+   * loss) persists false.
+   */
+  private fun pausePlayback(abandon: Boolean = true, resumeAfterDeath: Boolean = false) {
     try {
       if (player?.isPlaying == true) player?.pause()
     } catch (e: IllegalStateException) {
@@ -291,6 +395,8 @@ class MediaService : Service() {
     }
     MediaStore.playing = false
     syncPosition()
+    persistWasPlaying = resumeAfterDeath
+    persistSnapshot(force = true)
     if (abandon) abandonFocus()
     applyState()
   }
@@ -303,6 +409,7 @@ class MediaService : Service() {
       return
     }
     MediaStore.positionMs = posMs
+    persistSnapshot(force = true)
     applyState()
   }
 
@@ -338,7 +445,10 @@ class MediaService : Service() {
   private fun onCompletion() {
     MediaStore.playing = false
     if (!advanceToNext()) {
+      // playlist over: a later process death must not resurrect a finished track
       MediaStore.positionMs = MediaStore.durationMs
+      persistWasPlaying = false
+      persistSnapshot(force = true)
       applyState()
       MediaStore.onAction?.invoke("ended", null)
     }
@@ -347,6 +457,8 @@ class MediaService : Service() {
   private fun onPlayerError(what: Int, extra: Int) {
     releasePlayer()
     MediaStore.playing = false
+    persistWasPlaying = false
+    persistSnapshot(force = true)
     applyState()
     MediaStore.onAction?.invoke("error", null)
   }
@@ -355,6 +467,8 @@ class MediaService : Service() {
   private fun stopAll() {
     abandonFocus()
     releasePlayer()
+    persistWasPlaying = false
+    PlaybackPersist.clear(applicationContext)
     MediaStore.clear()
     @Suppress("DEPRECATION")
     stopForeground(true)
@@ -450,6 +564,7 @@ class MediaService : Service() {
       pausePlayback()
       MediaStore.onAction?.invoke("timer", null)
     }
+    persistSnapshot()   // throttled to 5s inside: keeps the death-resume position fresh
     if (MediaStore.playing) applyState()   // advances the One UI progress bar
   }
 
@@ -580,10 +695,13 @@ class MediaService : Service() {
   }
 
   companion object {
+    private const val TAG = "PeekyMedia"
     private const val NOTIF_ID = 4711
     private const val CHANNEL_ID = "peeky-playback"
+    private const val REQ_RESTART = 77
     private const val EXTRA_SEEK = "com.plugin.media.SEEK_MS"
     const val ACTION_UPDATE = "com.plugin.media.UPDATE"
+    const val ACTION_RESUME = "com.plugin.media.RESUME"
     const val ACTION_PLAY = "com.plugin.media.PLAY"
     const val ACTION_PAUSE = "com.plugin.media.PAUSE"
     const val ACTION_NEXT = "com.plugin.media.NEXT"
@@ -629,6 +747,7 @@ class MediaService : Service() {
       }
       MediaStore.serviceAlive = false
       MediaStore.clear()
+      PlaybackPersist.clear(ctx)
     }
   }
 }
