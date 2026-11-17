@@ -31,6 +31,8 @@ jobs:
           echo "sdkmanager: $SDKMANAGER"
           yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
           "$SDKMANAGER" "platforms;android-34" "build-tools;34.0.0" "ndk;27.0.12077973"
+          # the generated project compiles against SDK 37; grab it too (AGP auto-download is the backstop)
+          "$SDKMANAGER" "platforms;android-37" "build-tools;37.0.0" || true
 
       - uses: dtolnay/rust-toolchain@stable
         with:
