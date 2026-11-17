@@ -1,3 +1,3 @@
 [default]
-description = "Default permissions for the plugin"
-permissions = ["allow-update", "allow-stop", "allow-register-listener", "allow-remove-listener"]
+description = "Default permissions for the plugin (register_listener/remove_listener are core plugin commands and need no permission entry)"
+permissions = ["allow-update", "allow-stop"]
