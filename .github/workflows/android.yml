@@ -66,10 +66,11 @@ jobs:
       - name: Build the debug APK
         if: steps.gen.outputs.exists == 'true'
         working-directory: src-tauri
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
-        run: tauri android build --apk --debug --target aarch64
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"
+          export NDK_HOME="$ANDROID_NDK_HOME"
+          echo "NDK: $NDK_HOME"
+          tauri android build --apk --debug --target aarch64
 
       - name: Upload the APK
         if: steps.gen.outputs.exists == 'true'
