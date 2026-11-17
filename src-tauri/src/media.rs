@@ -55,15 +55,35 @@ fn kind_name(k: MediaPlaybackType) -> &'static str {
     }
 }
 
+fn thumb_hash(b: &[u8]) -> u64 {
+    // FNV-1a: cheap change detector for cover bytes
+    let mut h = 0xcbf2_9ce4_8422_2325u64;
+    for &x in b {
+        h ^= x as u64;
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    h ^ (b.len() as u64).rotate_left(32)
+}
+
 pub struct Media {
     mgr: Option<GlobalSystemMediaTransportControlsSessionManager>,
-    last_key: String,
+    thumb_key: String,
+    thumb_hash: u64,
+    thumb_cleared: bool,
+    thumb_due: Instant,
     none_sent: bool,
 }
 
 impl Media {
     pub fn new() -> Self {
-        Self { mgr: None, last_key: String::new(), none_sent: false }
+        Self {
+            mgr: None,
+            thumb_key: String::new(),
+            thumb_hash: 0,
+            thumb_cleared: false,
+            thumb_due: Instant::now(),
+            none_sent: false,
+        }
     }
 
     fn session(&mut self) -> Option<GlobalSystemMediaTransportControlsSession> {
@@ -86,7 +106,9 @@ impl Media {
             if !self.none_sent {
                 sys::helper(json!({ "t": "media", "active": false }));
                 self.none_sent = true;
-                self.last_key.clear();
+                self.thumb_key.clear();
+                self.thumb_hash = 0;
+                self.thumb_cleared = false;
             }
             return;
         };
@@ -122,10 +144,36 @@ impl Media {
             "canSeek": can_seek, "pos": pos.round(), "dur": dur.max(0.0).round(), "app": app, "key": key,
         }));
         self.none_sent = false;
-        if key != self.last_key {
-            self.last_key = key.clone();
-            let data = props.Thumbnail().ok().and_then(|t| read_stream(t.OpenReadAsync())).map(|b| sys::b64(&b));
-            sys::helper(json!({ "t": "thumb", "key": key, "data": data }));
+        // The cover is NOT fetched just once per track: browsers publish the
+        // metadata first and the artwork a moment later (or swap a placeholder
+        // for the real thumbnail), so a single grab on key change can stick
+        // the pill with the wrong cover and colour until a page refresh.
+        // Retry quickly while no art has arrived, then re-check every few
+        // seconds and push the art whenever its bytes actually change.
+        if key != self.thumb_key {
+            self.thumb_key = key.clone();
+            self.thumb_hash = 0;
+            self.thumb_cleared = false;
+            self.thumb_due = Instant::now();
+        }
+        if Instant::now() >= self.thumb_due {
+            match props.Thumbnail().ok().and_then(|t| read_stream(t.OpenReadAsync())) {
+                Some(b) if !b.is_empty() => {
+                    let h = thumb_hash(&b);
+                    if h != self.thumb_hash {
+                        self.thumb_hash = h;
+                        sys::helper(json!({ "t": "thumb", "key": key, "data": sys::b64(&b) }));
+                    }
+                    self.thumb_due = Instant::now() + Duration::from_secs(4);
+                }
+                _ => {
+                    if !self.thumb_cleared {
+                        self.thumb_cleared = true;
+                        sys::helper(json!({ "t": "thumb", "key": key, "data": serde_json::Value::Null }));
+                    }
+                    self.thumb_due = Instant::now() + Duration::from_millis(700);
+                }
+            }
         }
     }
 
