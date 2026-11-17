@@ -35,7 +35,18 @@ impl<R: Runtime, T: Manager<R>> crate::MediaExt<R> for T {
 /// Initializes the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
   Builder::new("media")
-    .invoke_handler(tauri::generate_handler![commands::update, commands::stop])
+    .invoke_handler(tauri::generate_handler![
+      commands::update,
+      commands::play_file,
+      commands::pause,
+      commands::resume,
+      commands::seek_to,
+      commands::stop,
+      commands::set_next,
+      commands::state,
+      commands::sleep_timer,
+      commands::set_volume
+    ])
     .setup(|app, api| {
       #[cfg(mobile)]
       let media = mobile::init(app, api)?;

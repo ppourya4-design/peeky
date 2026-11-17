@@ -1,3 +1,14 @@
 [default]
 description = "Default permissions for the plugin (register_listener/remove_listener are core plugin commands and need no permission entry)"
-permissions = ["allow-update", "allow-stop"]
+permissions = [
+  "allow-update",
+  "allow-play-file",
+  "allow-pause",
+  "allow-resume",
+  "allow-seek-to",
+  "allow-stop",
+  "allow-set-next",
+  "allow-state",
+  "allow-sleep-timer",
+  "allow-set-volume",
+]
