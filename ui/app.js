@@ -697,17 +697,26 @@ function paletteFromImage(img) {
   const base = (warm ? 36 : 30) + clamp((L / W - 50) / 50, 0, 1) * 6, step = warm ? -7 : 10;   // light picture -> a touch lighter
   return [0, 1, 2].map((i) => `hsl(${(h + step * i + 360) % 360} ${s}% ${Math.round(base + 7 * i)}%)`);
 }
+let artSeq = 0;
 function setArt(b64) {
   const art = $('#art');
+  const seq = ++artSeq;
   if (!b64) { art.style.backgroundImage = ''; art.innerHTML = svg('note'); setPalette(DEFAULT_PAL.slice()); return; }
   const url = `data:image/png;base64,${b64}`;
-  const img = new Image();
-  img.onload = () => {
+  const paint = (img) => {
+    if (seq !== artSeq) return;   // a newer cover arrived while this one was decoding: it wins
     art.style.backgroundImage = `url(${url})`; art.innerHTML = '';
     try { setPalette(paletteFromImage(img)); } catch { setPalette(DEFAULT_PAL.slice()); }
   };
-  img.onerror = () => setArt(null);
-  img.src = url;
+  // decode off the compositor's path: an <img> load can sit queued while the pill is tucked behind a
+  // fullscreen app, which left a stale cover and palette on screen until a hover woke the page up
+  fetch(url).then((r) => r.blob()).then((blob) => createImageBitmap(blob)).then(paint).catch(() => {
+    if (seq !== artSeq) return;
+    const img = new Image();
+    img.onload = () => paint(img);
+    img.onerror = () => { if (seq === artSeq) setArt(null); };
+    img.src = url;
+  });
 }
 // Films and series are not "now playing" material: the player says so (kind), or it is a known video app.
 const VIDEO_APPS = /vlc|mpv|mpc-hc|mpc-be|potplayer|kmplayer|smplayer|gomplayer|zunevideo|netflix|primevideo|disney|plex|kodi|stremio|filimo|namava|aparat/i;
@@ -720,6 +729,7 @@ function onMedia(m) {
   } else {
     const justSeeked = Date.now() - (st.seekAt || 0) < 1500 && m.key === was.key;     // the player has not caught up yet
     st.media = { ...m, at: performance.now(), video: m.kind === 'Video' || VIDEO_APPS.test(m.app || '') };
+    if (m.key !== was.key && !local.on) setArt(null);   // a new track/video starts bare: never keep the previous one's cover and colours while its own art is on the way
     if (justSeeked) { st.media.pos = was.pos; st.media.at = was.at; }
     $('#m-title').textContent = m.title || 'Unknown title';
     if (!st.scrubbing) $('#m-artist').textContent = m.artist || '';

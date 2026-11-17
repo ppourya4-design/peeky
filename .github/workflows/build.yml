@@ -1,7 +1,8 @@
 name: build
 
 # Every push builds the Windows app. A tag like v2.1.0 also publishes it as a release:
-# installer, portable exe, zip, the installer's signature and latest.json (what the in-app updater reads).
+# installer, portable exe, zip and latest.json (what the in-app updater reads). The installer's
+# signature (.sig) is added to the release afterwards, signed locally — see the note further down.
 on:
   push:
     branches: [main]
@@ -47,11 +48,9 @@ jobs:
           "VERSION=$version" >> $env:GITHUB_ENV
           Get-ChildItem dist | Format-Table Name, Length
 
-      - name: Sign the installer
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          PEEKY_SIGN_KEY: ${{ secrets.PEEKY_SIGN_KEY }}
-        run: node installer/sign.mjs dist/Peeky-Setup.exe
+      # No signing step here on purpose: the release key never lives in CI or in repo secrets.
+      # The installer is signed locally by the maintainer (installer/sign.mjs) and the .sig is
+      # uploaded to the release afterwards — the app verifies it against its built-in public key.
 
       - uses: actions/upload-artifact@v4
         with:

@@ -10,9 +10,11 @@ use windows::Win32::System::Com::Urlmon::URLDownloadToFileW;
 
 use crate::{settings, sys};
 
-const BASE: &str = "https://github.com/raminturne/peeky/releases/latest/download";
-/// The public half of the release-signing key (Ed25519). The private half lives only in the repository's secrets.
-const KEY: [u8; 32] = [63, 0, 60, 214, 100, 167, 237, 223, 180, 217, 239, 181, 141, 177, 76, 130, 3, 62, 67, 79, 23, 72, 155, 50, 58, 132, 111, 212, 124, 162, 222, 128];
+const BASE: &str = "https://github.com/ppourya4-design/peeky/releases/latest/download";
+/// The public half of Poyzen's own release-signing key (Ed25519). The private half never leaves the
+/// maintainer's machine: releases are built by CI, then the installer is signed locally and the
+/// signature uploaded to the release — no signing key exists in the repository or its secrets.
+const KEY: [u8; 32] = [48, 3, 161, 221, 2, 97, 156, 174, 117, 222, 2, 5, 153, 93, 87, 64, 118, 60, 26, 8, 30, 135, 250, 192, 239, 46, 196, 11, 243, 56, 33, 156];
 
 static READY: Mutex<Option<(String, PathBuf)>> = Mutex::new(None);
 

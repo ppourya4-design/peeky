@@ -71,6 +71,7 @@ pub struct Media {
     thumb_hash: u64,
     thumb_cleared: bool,
     thumb_due: Instant,
+    thumb_born: Instant,
     none_sent: bool,
 }
 
@@ -82,6 +83,7 @@ impl Media {
             thumb_hash: 0,
             thumb_cleared: false,
             thumb_due: Instant::now(),
+            thumb_born: Instant::now(),
             none_sent: false,
         }
     }
@@ -155,6 +157,7 @@ impl Media {
             self.thumb_hash = 0;
             self.thumb_cleared = false;
             self.thumb_due = Instant::now();
+            self.thumb_born = Instant::now();
         }
         if Instant::now() >= self.thumb_due {
             match props.Thumbnail().ok().and_then(|t| read_stream(t.OpenReadAsync())) {
@@ -164,7 +167,11 @@ impl Media {
                         self.thumb_hash = h;
                         sys::helper(json!({ "t": "thumb", "key": key, "data": sys::b64(&b) }));
                     }
-                    self.thumb_due = Instant::now() + Duration::from_secs(4);
+                    // a young session's first art is often a placeholder (the browser's own icon)
+                    // that the real cover replaces a few seconds in: keep the fast cadence for a
+                    // while after every key change, then settle into the slow re-check
+                    let young = self.thumb_born.elapsed() < Duration::from_secs(15);
+                    self.thumb_due = Instant::now() + if young { Duration::from_millis(700) } else { Duration::from_secs(4) };
                 }
                 _ => {
                     if !self.thumb_cleared {
