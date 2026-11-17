@@ -28,7 +28,7 @@ class AppNotificationFilterTest {
         assertFalse(NotificationFilter.isAppEligibleForIsland("com.android.settings", mockPm))
         assertFalse(NotificationFilter.isAppEligibleForIsland("com.android.systemui", mockPm))
         assertFalse(NotificationFilter.isAppEligibleForIsland("android", mockPm))
-        assertFalse(NotificationFilter.isAppEligibleForIsland("com.agupta07505.smartisland", mockPm))
+        assertFalse(NotificationFilter.isAppEligibleForIsland("ir.poyzo.peekyisland", mockPm))
     }
 
     @Test
