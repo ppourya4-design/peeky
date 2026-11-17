@@ -1,6 +1,7 @@
 /* Peeky for phones: a single-window music player. The tag readers are the pill's own (from app.js),
    the waveform and the lyrics engine are the player window's (from player.js) — only the wiring differs:
-   here the <audio> element lives in this page, so position and duration come straight from it. */
+   playback itself lives in the media service's native MediaPlayer (v4); this page is its remote
+   control and display, fed by a 500ms state poll whose position the frame loop interpolates. */
 (() => {
 'use strict';
 const call = (c, a) => window.__TAURI__.core.invoke(c, a);
@@ -22,12 +23,13 @@ const I = {
   muted: S0 + `<path fill="currentColor" d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4z"/><path ${ST} d="M16 9.5l5 5M21 9.5l-5 5"/>` + S1,
   again: S0 + `<path ${ST} d="M20 12a8 8 0 1 1-2.400-5.700M20 4v4.500h-4.500"/>` + S1,
   nolyrics: S0 + `<path fill="currentColor" d="M10 4v10.200a3.200 3.200 0 1 0 2 3V8h5V4z"/><path ${ST} d="M4 4l16 16"/>` + S1,
+  moon: S0 + `<path ${ST} d="M20 13.2A8.2 8.2 0 1 1 10.8 4a6.6 6.6 0 0 0 9.2 9.2z"/>` + S1,
+  sort: S0 + `<path ${ST} d="M8 4v12.5M8 16.5l-3-3M8 16.5l3-3M16 20V7.5M16 7.5l-3 3M16 7.5l3 3"/>` + S1,
 };
 const put = (el, k) => { if (el.dataset.k !== k) { el.dataset.k = k; el.innerHTML = I[k]; } };
-put($('#c-prev'), 'prev'); put($('#c-next'), 'next'); put($('#c-shuffle'), 'shuffle'); put($('#c-play'), 'play'); put($('#c-repeat'), 'repeat'); put($('#vmute'), 'volume');
+put($('#c-prev'), 'prev'); put($('#c-next'), 'next'); put($('#c-shuffle'), 'shuffle'); put($('#c-play'), 'play'); put($('#c-repeat'), 'repeat'); put($('#sleep'), 'moon');
 
 // ------------------------------------------------------------ tags (from app.js, unchanged)
-const MIME = { mp3: 'audio/mpeg', flac: 'audio/flac', wav: 'audio/wav', ogg: 'audio/ogg', opus: 'audio/ogg; codecs=opus', m4a: 'audio/mp4', aac: 'audio/aac' };
 function nameOf(path) {
   const parts = path.split(/[\\/]/), file = parts.pop() || '', dir = parts.pop() || '';
   let title = file.replace(/\.[^.]+$/, '').replace(/^\d{1,3}\s*[-._)]\s*/, '').replace(/_/g, ' ').trim() || file, artist = '';
@@ -183,10 +185,8 @@ const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === 
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
 
 // ------------------------------------------------------------ the player
-const audio = new Audio();
-audio.preload = 'auto';
 const P = {
-  list: [], idx: -1, on: false, loading: false, seq: 0, fails: 0, url: null,
+  list: [], idx: -1, on: false, loading: false, seq: 0, fails: 0,
   title: '', artist: '', cover: null,
   shuffle: !!lsGet('peeky.mob.shuffle', false),
   repeat: Number(lsGet('peeky.mob.repeat', 0)) || 0,
@@ -208,7 +208,7 @@ function feedAurora() {
 }
 function paintState() {
   S.on = P.on; S.title = P.title; S.artist = P.artist;
-  S.playing = P.on && !audio.paused && !audio.ended;
+  S.playing = P.on && NP.playing;
   $('#title').textContent = P.on ? (P.title || 'Unknown title') : 'Nothing playing';
   $('#artist').textContent = P.on ? (P.artist || '') : '';
   put($('#c-play'), S.playing ? 'pause' : 'play');
@@ -223,23 +223,11 @@ function paintState() {
   $('#seek').classList.toggle('off', !(P.on && S.dur > 0));
   if (window.Aurora) window.Aurora.state({ pal: null, look: 'black', playing: S.playing });
   markNow();
-  pushMedia();
-}
-function setSession() {
-  try {
-    const ms = navigator.mediaSession;
-    ms.metadata = new MediaMetadata({ title: P.title || '', artist: P.artist || '' });
-    ms.setActionHandler('play', () => toggle());
-    ms.setActionHandler('pause', () => toggle());
-    ms.setActionHandler('nexttrack', () => next());
-    ms.setActionHandler('previoustrack', () => prev());
-    ms.setActionHandler('seekto', (e) => { if (e.seekTime != null) audio.currentTime = e.seekTime; });
-  } catch { /* not supported here */ }
 }
 function saveResume(posMs) {
   const tr = P.list[P.idx];
   if (!tr) return;
-  lsSet('peeky.mob.resume', { path: tr.path, pos: Math.round(posMs != null ? posMs : audio.currentTime * 1000) || 0 });
+  lsSet('peeky.mob.resume', { path: tr.path, pos: Math.round(posMs != null ? posMs : npPos()) || 0 });
 }
 
 // ------------------------------------------------------------ the persisted library
@@ -277,59 +265,133 @@ function loadLibCache() {
   return true;
 }
 
-// ------------------------------------------------------------ media notification (tauri-plugin-media)
-// The native foreground service renders the notification + media session from what we push here;
-// its buttons come back through a Channel registered as the plugin's "media-action" listener.
-function coverPngOf(b64) {
+// ------------------------------------------------------------ display metadata cleaner
+// Download-site spam rides along in the tags and filenames ("Damn Things
+// [ GisoMusic.com ]", "Dorcci - GisoMusic.com"). Everything the user SEES —
+// player header, list rows, the notification — and the lyrics lookup use the
+// cleaned values; the raw tags in the library cache are never rewritten.
+const DOMAIN_RE = /\b(?:www\.)?[a-z0-9][a-z0-9-]*\.(?:com|net|org|ir|io|me|fm|tv|cc|info|biz|xyz|site|online|music|app)(?:\.[a-z]{2})?\b/i;
+function cleanMeta(s) {
+  if (!s) return '';
+  let out = String(s);
+  out = out.replace(/\[[^\]]*\]/g, (m) => (DOMAIN_RE.test(m) || /music|download/i.test(m)) ? ' ' : m);
+  out = out.replace(/\([^)]*\)/g, (m) => (DOMAIN_RE.test(m) ? ' ' : m));
+  out = out.replace(/\S+/g, (w) => (DOMAIN_RE.test(w) ? '' : w));
+  out = out.replace(/[\s\-–—|:;]+$/, '').replace(/^[\s\-–—|:;]+/, '');
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+// ------------------------------------------------------------ native player (tauri-plugin-media, v4)
+// Playback lives in the foreground service's MediaPlayer; this page is its
+// remote control + display. A 500ms `state` poll keeps NP fresh and the frame
+// loop interpolates the position between polls so waveform/lyrics stay smooth.
+// Invoke arguments are matched BY NAME by Tauri: payload-taking commands take
+// one argument named `payload` (without the wrapper every call is rejected —
+// that is why the v2 notification never appeared).
+const mediaCall = (c, a) => call('plugin:media|' + c, a);
+const mediaInvoke = (c, a) => { try { return mediaCall(c, a).catch((e) => { try { console.warn('media|' + c + ' failed', e); } catch { /* no console */ } }); } catch { return Promise.resolve(); } };
+const NP = { playing: false, posMs: 0, durMs: 0, at: 0, path: '', sleepLeftMs: -1 };
+const npPos = () => NP.playing ? clamp(NP.posMs + (performance.now() - NP.at), 0, NP.durMs > 0 ? NP.durMs : Infinity) : NP.posMs;
+const coverKeyOf = (tr) => (tr && tr.coverB64) ? tr.path + ':' + tr.coverB64.length : '';
+function coverArtOf(b64) {
+  // 512px JPEG: what One UI's expanded media panel actually displays; the
+  // v2/v3 256px PNG looked soft there (and PNG is needlessly heavy for photos)
   return new Promise((res) => {
     if (!b64) return res(null);
     const img = new Image();
-    img.onload = () => { try { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); const s = Math.min(img.width, img.height); g.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 256, 256); res(c.toDataURL('image/png').split(',')[1]); } catch { res(null); } };
+    img.onload = () => { try { const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d'); const s = Math.min(img.width, img.height); g.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 512, 512); res(c.toDataURL('image/jpeg', 0.88).split(',')[1]); } catch { res(null); } };
     img.onerror = () => res(null);
     img.src = 'data:' + imgMime(b64) + ';base64,' + b64;
   });
 }
-const mediaInvoke = (c, a) => { try { return call('plugin:media|' + c, a).catch((e) => { try { console.warn('media|' + c + ' failed', e); } catch { /* no console */ } }); } catch { return Promise.resolve(); } };
-let mediaOn = false, mediaCoverKey = null, mediaCoverPng = null, mediaBusy = false, mediaAgain = false;
-function pushMedia() {
-  if (mediaBusy) { mediaAgain = true; return; }
-  mediaBusy = true;
-  (async () => {
-    if (!P.on) {
-      if (mediaOn) { mediaOn = false; mediaCoverKey = null; mediaCoverPng = null; await mediaInvoke('stop'); }
-      return;
-    }
-    mediaOn = true;
-    const key = P.cover ? (P.title + '\u0001' + P.artist) : '';
-    let cover = null;
-    if (key !== mediaCoverKey) {           // the (heavy) PNG only travels when the cover changes
-      mediaCoverKey = key;
-      mediaCoverPng = key ? await coverPngOf(P.cover) : null;
-      cover = mediaCoverPng;
-    }
-    // the Rust command takes the state as one argument named `payload`, and Tauri
-    // matches invoke arguments by name — without this wrapper every call is rejected
-    // (that is why the v2 notification never appeared: the service never started).
-    await mediaInvoke('update', { payload: {
-      title: P.title || '', artist: P.artist || '', playing: S.playing,
-      durationMs: Math.round(S.dur || 0), positionMs: Math.round((audio.currentTime || 0) * 1000),
-      hasNext: P.list.length > 1, hasPrev: P.list.length > 1,
-      cover, coverKey: key,
-    } });
-  })().then(() => { mediaBusy = false; if (mediaAgain) { mediaAgain = false; pushMedia(); } });
+function npSync(st) {
+  NP.playing = !!st.playing;
+  NP.posMs = st.positionMs || 0;
+  NP.durMs = st.durationMs || 0;
+  NP.at = performance.now();
+  NP.path = st.path || '';
+  NP.sleepLeftMs = typeof st.sleepTimerRemainingMs === 'number' ? st.sleepTimerRemainingMs : -1;
+  if (NP.durMs > 0) {
+    S.dur = NP.durMs;
+    const tr = P.list[P.idx];
+    if (tr && tr.path === NP.path && tr.dur !== Math.round(NP.durMs)) { tr.dur = Math.round(NP.durMs); saveLibCache(); }
+  }
+  paintSleep();
 }
+// metadata for the loaded track (title/artist/cover) — playback state is the
+// service's own business now, so this only rides along on track/tag changes
+let metaKey = null, metaArt = null;
+async function pushMeta() {
+  if (!P.on) return;
+  const tr = P.list[P.idx];
+  if (!tr) return;
+  let cover = null;
+  const key = P.cover ? tr.path + ':' + P.cover.length : '';
+  if (P.cover) {
+    if (metaKey !== key) { metaKey = key; metaArt = await coverArtOf(P.cover); }
+    cover = metaArt;
+  } else metaKey = null;
+  await mediaInvoke('update', { payload: {
+    title: P.title || '', artist: P.artist || '', durationMs: Math.round(NP.durMs || tr.dur || 0),
+    cover, coverKey: key,
+  } });
+}
+// queue logic stays here (order / shuffle / repeat); the service gets exactly
+// one track armed ahead, so completion can advance even with the WebView dead
+function computeNext() {
+  const n = P.list.length;
+  if (!n || P.idx < 0) return null;
+  if (P.repeat === 2) return P.list[P.idx];
+  if (P.shuffle) return null;      // the pick is random: a live UI advances from the "ended" event instead
+  if (P.idx + 1 < n) return P.list[P.idx + 1];
+  return P.repeat === 1 ? P.list[0] : null;
+}
+function sendSetNext() {
+  const nx = computeNext();
+  mediaInvoke('set_next', { payload: { path: nx ? nx.path : null, title: nx ? (cleanMeta(nx.title) || nx.title) : '', artist: nx ? cleanMeta(nx.artist) : '' } });
+}
+function adoptByPath(path, st) {
+  const i = P.list.findIndex((t) => t.path === path);
+  if (i < 0) return;
+  const tr = P.list[i];
+  P.idx = i; P.on = true; P.loading = false;
+  P.title = cleanMeta((st && st.title) || tr.title) || tr.title;
+  P.artist = cleanMeta((st && st.artist) || tr.artist);
+  P.cover = tr.coverB64 || null;
+  paintState(); lyrTrack(); feedAurora(); sendSetNext();
+}
+let pollBusy = false;
+async function pollState() {
+  if (pollBusy) return;
+  pollBusy = true;
+  try {
+    const st = await mediaCall('state');
+    if (st) {
+      const wasPlaying = NP.playing;
+      npSync(st);
+      if (st.path && P.on && st.path !== (P.list[P.idx] || {}).path) adoptByPath(st.path, st);
+      if (P.on && NP.playing !== S.playing) paintState();
+      if (wasPlaying && !NP.playing) saveResume();
+    }
+  } catch { /* service not up (nothing played yet) */ }
+  pollBusy = false;
+}
+setInterval(() => { if (P.on) pollState(); }, 500);
 try {
   const Ch = window.__TAURI__.core.Channel;
   if (Ch) {
     const ch = new Ch();
     ch.onmessage = (m) => {
+      // player-initiated changes only; user controls act natively in the service
       const a = m && m.action;
-      if (a === 'play') { if (!P.on) toggle(); else if (audio.paused) audio.play().catch(() => {}); }
-      else if (a === 'pause') { if (!audio.paused) audio.pause(); }
-      else if (a === 'next') next();
-      else if (a === 'prev') prev();
-      else if (a === 'seek' && m.positionMs != null && isFinite(m.positionMs)) { audio.currentTime = clamp(m.positionMs / 1000, 0, (S.dur || 0) / 1000); pushMedia(); }
-      else if (a === 'stop') { audio.pause(); }
+      if (a === 'track' && m.path) { adoptByPath(m.path); pollState(); }
+      else if (a === 'ended') {
+        NP.playing = false;
+        if (P.on && P.shuffle) next();          // shuffle arms no next track: advance from here
+        else if (P.on) { P.on = false; paintState(); }
+      }
+      else if (a === 'error') { if (P.on && !P.loading) failTrack(); }
+      else if (a === 'timer') { NP.sleepLeftMs = -1; paintSleep(); }
     };
     call('plugin:media|register_listener', { event: 'media-action', handler: ch }).catch(() => {});
   }
@@ -339,41 +401,58 @@ async function playTrack(i, autoplay = true, resumePos = 0) {
   const n = P.list.length;
   if (!n) return;
   i = ((i % n) + n) % n;
-  const seq = ++P.seq, tr = P.list[i], ext = extOf(tr.path);
+  const seq = ++P.seq, tr = P.list[i];
   P.idx = i; P.on = true; P.loading = true;
-  P.title = tr.title; P.artist = tr.artist; P.cover = tr.coverB64 || null;
-  audio.pause();
-  paintState(); lyrTrack();
-  let buf = null;
-  try { buf = await call('music_read', { path: tr.path }); } catch { buf = null; }
+  P.title = cleanMeta(tr.title) || tr.title; P.artist = cleanMeta(tr.artist);
+  P.cover = tr.coverB64 || null;
+  NP.playing = false; NP.posMs = resumePos || 0; NP.durMs = tr.dur || 0; NP.at = performance.now(); NP.path = tr.path;
+  S.dur = NP.durMs;
+  paintState(); lyrTrack(); feedAurora();
+  const art = tr.coverB64 ? await coverArtOf(tr.coverB64) : null;
   if (seq !== P.seq) return;
-  if (buf && !(buf instanceof ArrayBuffer)) buf = new Uint8Array(buf).buffer;
-  P.loading = false;
-  if (!buf || !buf.byteLength) { failTrack(); return; }
+  try {
+    await mediaCall('play_file', { payload: {
+      path: tr.path, title: P.title || '', artist: P.artist || '',
+      durationMs: Math.round(tr.dur || 0), autoplay: !!autoplay,
+      startPositionMs: Math.round(resumePos || 0),
+      cover: art, coverKey: coverKeyOf(tr),
+    } });
+  } catch { if (seq === P.seq) { P.loading = false; failTrack(); } return; }
+  if (seq !== P.seq) return;
+  P.loading = false; P.fails = 0;
+  NP.playing = !!autoplay; NP.at = performance.now();
+  paintState(); saveResume(resumePos || 0); sendSetNext();
+  refineCurrent(i, seq);
+}
+// the playing track's tags may arrive (or improve) after it has started: when
+// they do, refresh the list row, the header, the lyrics lookup and the
+// notification metadata — the raw library entry keeps the original tags
+async function refineCurrent(i, seq) {
+  const tr = P.list[i];
+  if (!tr) return;
+  const ext = extOf(tr.path);
+  if (!/^(mp3|m4a|flac)$/i.test(ext)) return;
+  let buf = null;
+  try { buf = await call('music_head', { path: tr.path }); } catch { buf = null; }
+  if (!buf || seq !== P.seq) return;
+  if (!(buf instanceof ArrayBuffer)) buf = new Uint8Array(buf).buffer;
   const tags = tagsOf(buf, ext);
-  if (tags.title) { P.title = tags.title; tr.title = tags.title; }
-  if (tags.artist) { P.artist = tags.artist; tr.artist = tags.artist; }
-  if (tags.title || tags.artist) { tagCache[tr.path] = [tr.title, tr.artist]; saveTagCache(); updateRow(i); }
-  if (tags.cover) {
-    P.cover = tags.cover; tr.coverB64 = tags.cover;
+  let changed = false;
+  if (tags.title && tags.title !== tr.title) { tr.title = tags.title; changed = true; }
+  if (tags.artist && tags.artist !== tr.artist) { tr.artist = tags.artist; changed = true; }
+  if (tags.title || tags.artist) { tagCache[tr.path] = [tr.title, tr.artist]; saveTagCache(); }
+  if (tags.cover && tags.cover !== tr.coverB64) {
+    tr.coverB64 = tags.cover; changed = true;
     thumbOf(tags.cover).then((t) => { if (t) { tr.thumb = t; updateRow(i); saveLibCache(); } });
   }
-  if (tags.title || tags.artist || tags.cover) saveLibCache();
-  if (P.url) URL.revokeObjectURL(P.url);
-  P.url = URL.createObjectURL(new Blob([buf], { type: MIME[ext.toLowerCase()] || '' }));
-  audio.src = P.url;
-  if (resumePos > 0) {
-    const seekOnce = () => { try { audio.currentTime = resumePos / 1000; } catch { /* too early */ } };
-    audio.addEventListener('loadedmetadata', seekOnce, { once: true });
+  if (tags.title || tags.artist || tags.cover) { tr.tagged = true; saveLibCache(); }
+  if (!changed) return;
+  if (P.idx === i) {
+    P.title = cleanMeta(tr.title) || tr.title; P.artist = cleanMeta(tr.artist);
+    if (tags.cover) P.cover = tags.cover;
+    paintState(); lyrTrack(); feedAurora(); pushMeta();
   }
-  paintState(); setSession(); feedAurora(); saveResume(0);
-  lyrTrack();      // the real names may have just arrived with the tags: look the lyrics up under those
-  if (autoplay) {
-    try { await audio.play(); } catch { if (seq === P.seq) failTrack(); return; }
-  }
-  if (seq !== P.seq) return;
-  P.fails = 0;
-  paintState();
+  updateRow(i);
 }
 function failTrack() {
   const tr = P.list[P.idx];
@@ -389,68 +468,76 @@ function next() {
   playTrack(i);
 }
 function prev() {
-  if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+  if (npPos() > 3000) { doSeek(0); return; }
   playTrack(P.idx - 1);
 }
 function toggle() {
   if (!P.on) { if (P.list.length) playTrack(P.idx >= 0 ? P.idx : 0); return; }
-  if (audio.paused) audio.play().catch(() => {}); else audio.pause();
-}
-audio.addEventListener('ended', () => {
-  const n = P.list.length;
-  if (!n) return;
-  if (P.repeat === 2) { audio.currentTime = 0; audio.play().catch(() => {}); return; }
-  if (!P.shuffle && P.repeat === 0 && P.idx >= n - 1) { P.on = false; paintState(); return; }
-  next();
-});
-audio.addEventListener('play', () => { paintState(); });
-audio.addEventListener('pause', () => { paintState(); saveResume(); });
-audio.addEventListener('loadedmetadata', () => {
-  S.dur = isFinite(audio.duration) ? audio.duration * 1000 : 0;
-  const tr = P.list[P.idx];                        // remember the duration in the library cache
-  if (tr && S.dur > 0 && tr.dur !== Math.round(S.dur)) { tr.dur = Math.round(S.dur); saveLibCache(); }
+  if (NP.playing) { mediaInvoke('pause'); NP.playing = false; }
+  else { mediaInvoke('resume'); NP.playing = true; NP.at = performance.now(); }
   paintState();
-});
-audio.addEventListener('error', () => { if (P.on && !P.loading && audio.src) failTrack(); });
-setInterval(() => { if (P.on && !audio.paused) saveResume(); }, 5000);
-setInterval(() => { if (P.on && !audio.paused) pushMedia(); }, 4000);   // keep the notification's position fresh
-document.addEventListener('visibilitychange', () => { if (document.hidden) { saveResume(); pushMedia(); } });
+}
+function doSeek(ms) {
+  NP.posMs = clamp(Math.round(ms), 0, NP.durMs > 0 ? NP.durMs : Math.round(ms));
+  NP.at = performance.now();
+  mediaInvoke('seek_to', { payload: { positionMs: Math.round(NP.posMs) } });
+  saveResume(NP.posMs);
+}
+setInterval(() => { if (P.on && NP.playing) saveResume(); }, 5000);
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveResume(); else if (P.on) pollState(); });
 
 $('#c-play').addEventListener('click', toggle);
 $('#c-next').addEventListener('click', next);
 $('#c-prev').addEventListener('click', prev);
-$('#c-shuffle').addEventListener('click', () => { P.shuffle = !P.shuffle; lsSet('peeky.mob.shuffle', P.shuffle); paintState(); });
-$('#c-repeat').addEventListener('click', () => { P.repeat = (P.repeat + 1) % 3; lsSet('peeky.mob.repeat', P.repeat); paintState(); });
+$('#c-shuffle').addEventListener('click', () => { P.shuffle = !P.shuffle; lsSet('peeky.mob.shuffle', P.shuffle); paintState(); sendSetNext(); });
+$('#c-repeat').addEventListener('click', () => { P.repeat = (P.repeat + 1) % 3; lsSet('peeky.mob.repeat', P.repeat); paintState(); sendSetNext(); });
 
-// ------------------------------------------------------------ volume (this page's own, unlike the pill's system volume)
-let vol = clamp(Number(lsGet('peeky.mob.vol', 70)), 0, 100);
-audio.volume = vol / 100;
-let volDrag = false;
-function paintVol() {
-  const v = audio.muted ? 0 : vol;
-  $('#vfill').style.width = v + '%'; $('#vknob').style.left = v + '%'; $('#vnum').textContent = v;
-  put($('#vmute'), v === 0 ? 'muted' : 'volume');
+// ------------------------------------------------------------ sleep timer (armed in the service, which pauses at expiry)
+const SLEEP_STEPS = [0, 15, 30, 45, 60];
+function paintSleep() {
+  const left = NP.sleepLeftMs, on = left > 0;
+  const btn = $('#sleep');
+  btn.classList.toggle('on', on);
+  const num = $('#sleepnum');
+  num.hidden = !on;
+  if (on) num.textContent = Math.max(1, Math.ceil(left / 60000)) + '′';
+  btn.title = on ? 'Sleep timer: ' + Math.ceil(left / 60000) + ' min left — tap to change' : 'Sleep timer';
 }
+$('#sleep').addEventListener('click', () => {
+  let cur = 0;
+  if (NP.sleepLeftMs > 0) {
+    const m = Math.ceil(NP.sleepLeftMs / 60000);
+    cur = SLEEP_STEPS.reduce((best, s) => (s >= m && (!best || s < best) ? s : best), 0) || 60;
+  }
+  const nextMin = SLEEP_STEPS[(SLEEP_STEPS.indexOf(cur) + 1) % SLEEP_STEPS.length];
+  mediaInvoke('sleep_timer', { payload: { minutes: nextMin } });
+  NP.sleepLeftMs = nextMin > 0 ? nextMin * 60000 : -1;
+  showToast(nextMin > 0 ? 'تایمر خواب: ' + nextMin + ' دقیقه' : 'تایمر خواب: خاموش');
+  paintSleep();
+});
+
+// (no in-app volume row on Android: the hardware volume keys own the media
+// stream, and the native player plays at full volume into it)
 const ratio = (el, e) => { const r = el.getBoundingClientRect(); return clamp((e.clientX - r.left) / r.width, 0, 1); };
-const vt = $('#vtrack');
-function volFrom(e) {
-  vol = Math.round(ratio(vt, e) * 100);
-  audio.muted = false; audio.volume = vol / 100;
-  lsSet('peeky.mob.vol', vol); paintVol();
-}
-vt.addEventListener('pointerdown', (e) => { volDrag = true; try { vt.setPointerCapture(e.pointerId); } catch { /* gone */ } volFrom(e); });
-vt.addEventListener('pointermove', (e) => { if (volDrag) volFrom(e); });
-vt.addEventListener('pointerup', () => { volDrag = false; });
-vt.addEventListener('pointercancel', () => { volDrag = false; });
-$('#vmute').addEventListener('click', () => { audio.muted = !audio.muted; paintVol(); });
 
 // ------------------------------------------------------------ the list
 let query = '', shown = 60, matches = [], lastIdx = -2;
+let sortMode = Number(lsGet('peeky.mob.sort', 0)) || 0;   // 0 = scan order, 1 = title, 2 = artist (display only; the queue keeps library order)
+const SORT_LABELS = ['Default', 'Title', 'Artist'];
 function applyFilter() {
   const q = query.trim().toLowerCase();
   matches = [];
-  for (let i = 0; i < P.list.length; i++) if (!q || (P.list[i].title + ' ' + P.list[i].artist).toLowerCase().includes(q)) matches.push(i);
+  for (let i = 0; i < P.list.length; i++) if (!q || (cleanMeta(P.list[i].title) + ' ' + cleanMeta(P.list[i].artist)).toLowerCase().includes(q)) matches.push(i);
+  if (sortMode) {
+    const k = sortMode === 1 ? 'title' : 'artist';
+    matches.sort((a, b) => cleanMeta(P.list[a][k]).toLowerCase().localeCompare(cleanMeta(P.list[b][k]).toLowerCase()) || a - b);
+  }
   shown = 60; lastIdx = -2; renderList();
+}
+function paintSort() {
+  const b = $('#sortbtn');
+  b.innerHTML = I.sort + '<span>' + SORT_LABELS[sortMode] + '</span>';
+  b.classList.toggle('on', sortMode > 0);
 }
 function rowFor(i) {
   const tr = P.list[i];
@@ -459,8 +546,8 @@ function rowFor(i) {
   const cov = document.createElement('span'); cov.className = 'cov';
   if (tr.thumb) cov.style.backgroundImage = 'url(' + tr.thumb + ')'; else cov.innerHTML = I.note;
   const t = document.createElement('span'); t.className = 't';
-  const b = document.createElement('b'); b.textContent = tr.title; b.dir = 'auto';
-  const a = document.createElement('span'); a.textContent = tr.artist; a.dir = 'auto';
+  const b = document.createElement('b'); b.textContent = cleanMeta(tr.title) || tr.title; b.dir = 'auto';
+  const a = document.createElement('span'); a.textContent = cleanMeta(tr.artist); a.dir = 'auto';
   t.append(b, a); row.append(n, cov, t);
   row.addEventListener('click', () => { playTrack(i); showPlayer(); });
   return row;
@@ -499,6 +586,7 @@ function markNow() {
   if (cur) { cur.classList.add('cur'); if (!query && $('#card').classList.contains('list-on')) keepInView(cur); }
 }
 $('#q').addEventListener('input', (e) => { query = e.target.value; applyFilter(); });
+$('#sortbtn').addEventListener('click', () => { sortMode = (sortMode + 1) % 3; lsSet('peeky.mob.sort', sortMode); paintSort(); applyFilter(); });
 
 // the list learns the real names in the background, two tags at a time (the pill's indexer, adapted)
 async function indexOne(i, gen) {
@@ -519,7 +607,7 @@ async function indexOne(i, gen) {
   if (tags.cover) { tr.coverB64 = tags.cover; tr.thumb = await thumbOf(tags.cover); if (tr.thumb) changed = true; }
   if (tags.title || tags.artist || tags.cover) saveLibCache();
   if (!changed || gen !== P.scanGen) return;
-  if (P.idx === i) { P.title = tr.title; P.artist = tr.artist; if (!P.cover && tr.coverB64) P.cover = tr.coverB64; paintState(); feedAurora(); }
+  if (P.idx === i) { P.title = cleanMeta(tr.title) || tr.title; P.artist = cleanMeta(tr.artist); if (!P.cover && tr.coverB64) P.cover = tr.coverB64; paintState(); feedAurora(); pushMeta(); }
   updateRow(i);
 }
 async function indexTags(gen) {
@@ -578,7 +666,7 @@ function wvBuild(key, n) {
 }
 function wvPaintBase() {
   const W = wvEl.width, H = wvEl.height, n = wvN, d = wvDpr, gap = 2 * d, bw = (W - (n - 1) * gap) / n;
-  for (const [cv, color] of [[wvDim, 'rgba(255,255,255,.28)'], [wvLit, '#fff']]) {
+  for (const [cv, color] of [[wvDim, 'rgba(255,255,255,.20)'], [wvLit, '#74E5FF']]) {
     cv.width = W; cv.height = H;
     const g = cv.getContext('2d');
     g.fillStyle = color;
@@ -609,12 +697,12 @@ seekEl.addEventListener('pointermove', (e) => { if (scrubbing) scrubR = ratio(se
 const seekEnd = (apply) => {
   if (!scrubbing) return;
   scrubbing = false; seekEl.classList.remove('drag');
-  if (apply && S.dur > 0) { audio.currentTime = (scrubR * S.dur) / 1000; saveResume(); pushMedia(); }
+  if (apply && S.dur > 0) doSeek(scrubR * S.dur);
 };
 seekEl.addEventListener('pointerup', () => seekEnd(true));
 seekEl.addEventListener('pointercancel', () => seekEnd(false));
 
-// ------------------------------------------------------------ lyrics (from player.js; seek goes to the audio element)
+// ------------------------------------------------------------ lyrics (from player.js; seek goes to the native player)
 var L = { on: false, key: '', tok: 0, state: 'idle', data: null, off: 0, active: -2, els: [], ws: [], wt: [], manual: 0, manualAt: 0, timer: 0 };
 let WM = 'fill'; try { const m = localStorage.getItem('peeky.lyr.wm'); if (m === 'line' || m === 'fill' || m === 'pop') WM = m; } catch { /* default */ }
 const lyEl = $('#lyrics'), lnEl = $('#lines'), lmsg = $('#lmsg'), lpill = $('#lpill'), tmEl = $('#timing');
@@ -622,7 +710,7 @@ const lyrKey = () => (S.on && S.title ? S.title + '\u0001' + (S.artist || '') : 
 const offText = (ms) => (ms > 0 ? '+' : ms < 0 ? '−' : '') + (Math.abs(ms) / 1000).toFixed(1) + 's';
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const msgBox = (icon, head, text, acts) => `<div class="big">${icon}</div><h3>${esc(head)}</h3><p>${esc(text)}</p>${acts ? '<div class="acts"><button id="l-again">' + I.again + 'Search again</button></div>' : ''}`;
-const seekToMs = (ms) => { audio.currentTime = clamp(ms, 0, S.dur || 1e9) / 1000; saveResume(); };
+const seekToMs = (ms) => doSeek(clamp(ms, 0, S.dur || 1e9));
 
 function lyrPill() {
   const s = L.state, p = lpill;
@@ -908,10 +996,10 @@ let loopPos = -1, loopSec = -1;
 (function loop() {
   requestAnimationFrame(loop);
   if (document.hidden) return;                       // nothing visible to paint; rAF throttles anyway
-  const dur = isFinite(audio.duration) ? audio.duration * 1000 : 0;
+  const dur = NP.durMs > 0 ? NP.durMs : (P.idx >= 0 && P.list[P.idx] ? P.list[P.idx].dur || 0 : 0);
   S.dur = dur;
-  S.playing = P.on && !audio.paused && !audio.ended;
-  const pos = scrubbing ? scrubR * dur : clamp(audio.currentTime * 1000 || 0, 0, dur || 0);
+  S.playing = P.on && NP.playing;
+  const pos = scrubbing ? scrubR * dur : clamp(npPos(), 0, dur || 0);
   if (!S.playing && !scrubbing && pos === loopPos) return;   // paused and unmoved: skip all repaint work
   loopPos = pos;
   drawWave(dur > 0 ? pos / dur : 0);
@@ -921,9 +1009,10 @@ let loopPos = -1, loopSec = -1;
 })();
 
 // ------------------------------------------------------------ boot: cached library first, rescan behind it
-paintVol();
 paintState();
 setLyr('idle');
+paintSort();
+paintSleep();
 (async () => {
   const cueResume = () => {
     try {
@@ -934,7 +1023,17 @@ setLyr('idle');
       }
     } catch { /* nothing to resume */ }
   };
-  if (loadLibCache()) { cueResume(); scan(); }    // instant list from the cache; the rescan only diffs in the background
-  else { await scan(); cueResume(); }             // first launch ever: nothing cached yet
+  // the service may still be playing from before this UI existed (the app was
+  // swiped away, the WebView died, the user came back): adopt its track —
+  // position, lyrics and queue re-sync from it — instead of restarting anything
+  const adoptFromService = async () => {
+    try {
+      const st = await mediaCall('state');
+      if (st && st.path && P.list.some((t) => t.path === st.path)) { npSync(st); adoptByPath(st.path, st); return true; }
+    } catch { /* service not running */ }
+    return false;
+  };
+  if (loadLibCache()) { if (!(await adoptFromService())) cueResume(); scan(); }   // instant list from the cache; the rescan only diffs in the background
+  else { await scan(); if (!(await adoptFromService())) cueResume(); }            // first launch ever: nothing cached yet
 })();
 })();

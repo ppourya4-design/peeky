@@ -15,6 +15,8 @@
     <span class="grow"></span>
     <span class="count" id="count"></span>
     <button class="wb" id="rescan" title="Rescan the phone"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="wb" id="sleep" title="Sleep timer"></button>
+    <span id="sleepnum" hidden></span>
   </header>
 
   <section class="nowp" id="nowp">
@@ -34,15 +36,13 @@
       <button class="ib" id="c-next" title="Next"></button>
       <button class="ib" id="c-repeat" title="Repeat"></button>
     </div>
-    <div class="volrow">
-      <button class="ib sm" id="vmute" title="Mute"></button>
-      <div class="vtrack" id="vtrack"><i id="vfill"></i><b id="vknob"></b></div>
-      <span id="vnum">50</span>
-    </div>
   </section>
 
   <section class="lib" id="lib">
-    <input id="q" type="text" placeholder="Search" spellcheck="false" autocomplete="off" dir="auto">
+    <div class="libtools">
+      <input id="q" type="text" placeholder="Search" spellcheck="false" autocomplete="off" dir="auto">
+      <button id="sortbtn" class="sortbtn" title="Sort order"></button>
+    </div>
     <div class="list" id="list"></div>
   </section>
 
