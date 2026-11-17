@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Peeky Island</string>
+    <string name="notif_channel_name">پیکی آیلند</string>
+    <string name="notif_channel_desc">نوتیفیکیشن ثابت سرویس جزیره</string>
+    <string name="notif_title">پیکی آیلند فعاله</string>
+    <string name="notif_text">جزیره بالای صفحه آماده‌ست</string>
+    <string name="listener_label">پیکی آیلند — شنونده نوتیفیکیشن</string>
+</resources>

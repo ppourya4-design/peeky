@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#000000</color>
+    <color name="pill_black">#000000</color>
+    <color name="pill_stroke">#2A2A2E</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B8B8BE</color>
+    <color name="accent_green">#34C759</color>
+    <color name="accent_red">#FF3B30</color>
+    <color name="accent_orange">#FF9F0A</color>
+    <color name="accent_blue">#0A84FF</color>
+    <color name="settings_bg">#0B0B0F</color>
+    <color name="settings_card">#17171C</color>
+    <color name="settings_divider">#26262C</color>
+</resources>

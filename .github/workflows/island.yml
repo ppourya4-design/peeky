@@ -1,0 +1,45 @@
+name: island
+
+# Builds the standalone Peeky Island Android app (branch `island` only).
+# Self-contained Gradle project under island-app/ — the Tauri desktop and
+# music-player builds are untouched by this workflow.
+on:
+  workflow_dispatch:
+  push:
+    branches: [island]
+    paths:
+      - 'island-app/**'
+      - '.github/workflows/island.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  island:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Same SDK approach as android.yml: the runner image ships the SDK;
+      # just accept licenses and install the platform/build-tools we target.
+      - name: Accept licenses and install Android SDK packages
+        run: |
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort | tail -1)
+          echo "sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Build the debug APK
+        working-directory: island-app
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Peeky-Island
+          path: island-app/app/build/outputs/apk/debug/*.apk
