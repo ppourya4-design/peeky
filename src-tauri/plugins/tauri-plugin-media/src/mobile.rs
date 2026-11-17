@@ -86,11 +86,4 @@ impl<R: Runtime> Media<R> {
       .run_mobile_plugin("sleepTimer", payload)
       .map_err(Into::into)
   }
-
-  pub fn set_volume(&self, payload: VolumeRequest) -> crate::Result<()> {
-    self
-      .0
-      .run_mobile_plugin("setVolume", payload)
-      .map_err(Into::into)
-  }
 }

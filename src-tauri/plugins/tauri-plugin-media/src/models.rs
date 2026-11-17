@@ -54,16 +54,8 @@ pub struct SleepTimerRequest {
   pub minutes: i64,
 }
 
-/// Set the media-stream volume, as a percentage of its maximum.
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VolumeRequest {
-  pub level: i64,
-}
-
 /// A snapshot of the native player, returned by the `state` command.
-/// `sleep_timer_remaining_ms` is -1 when no timer is armed; `volume` is the
-/// media-stream volume as a percentage of its maximum.
+/// `sleep_timer_remaining_ms` is -1 when no timer is armed.
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerState {
@@ -74,5 +66,4 @@ pub struct PlayerState {
   pub title: String,
   pub artist: String,
   pub sleep_timer_remaining_ms: i64,
-  pub volume: i64,
 }

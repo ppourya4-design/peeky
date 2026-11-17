@@ -8,7 +8,6 @@ const COMMANDS: &[&str] = &[
   "set_next",
   "state",
   "sleep_timer",
-  "set_volume",
 ];
 
 fn main() {

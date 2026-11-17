@@ -10,5 +10,4 @@ permissions = [
   "allow-set-next",
   "allow-state",
   "allow-sleep-timer",
-  "allow-set-volume",
 ]

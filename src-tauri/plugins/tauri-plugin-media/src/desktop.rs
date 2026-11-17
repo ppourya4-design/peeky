@@ -53,15 +53,10 @@ impl<R: Runtime> Media<R> {
       title: String::new(),
       artist: String::new(),
       sleep_timer_remaining_ms: -1,
-      volume: 0,
     })
   }
 
   pub fn sleep_timer(&self, _payload: SleepTimerRequest) -> crate::Result<()> {
-    Ok(())
-  }
-
-  pub fn set_volume(&self, _payload: VolumeRequest) -> crate::Result<()> {
     Ok(())
   }
 }

@@ -63,11 +63,3 @@ pub(crate) async fn sleep_timer<R: Runtime>(
 ) -> Result<()> {
   app.media().sleep_timer(payload)
 }
-
-#[tauri::command]
-pub(crate) async fn set_volume<R: Runtime>(
-  app: AppHandle<R>,
-  payload: VolumeRequest,
-) -> Result<()> {
-  app.media().set_volume(payload)
-}

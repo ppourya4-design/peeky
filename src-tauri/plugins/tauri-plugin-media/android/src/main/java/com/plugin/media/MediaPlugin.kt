@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.AudioManager
 import android.os.SystemClock
 import android.util.Base64
 import android.webkit.WebView
@@ -15,7 +14,6 @@ import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import java.io.File
-import kotlin.math.roundToInt
 
 @InvokeArg
 class UpdateArgs {
@@ -53,11 +51,6 @@ class SeekArgs {
 @InvokeArg
 class SleepTimerArgs {
   var minutes: Long = 0
-}
-
-@InvokeArg
-class VolumeArgs {
-  var level: Long = 0
 }
 
 /**
@@ -164,7 +157,6 @@ class MediaPlugin(private val activity: Activity) : Plugin(activity) {
       "sleepTimerRemainingMs",
       if (dl > 0) maxOf(0L, dl - SystemClock.elapsedRealtime()) else -1L
     )
-    out.put("volume", volumePercent())
     invoke.resolve(out)
   }
 
@@ -175,31 +167,6 @@ class MediaPlugin(private val activity: Activity) : Plugin(activity) {
       if (args.minutes > 0) SystemClock.elapsedRealtime() + args.minutes * 60_000L else 0L
     MediaService.poke(ctx, MediaService.ACTION_TIMER)
     invoke.resolve()
-  }
-
-  @Command
-  fun setVolume(invoke: Invoke) {
-    val args = invoke.parseArgs(VolumeArgs::class.java)
-    val am = ctx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-    if (am != null) {
-      val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-      if (max > 0) {
-        val level = (args.level.coerceIn(0, 100) / 100.0 * max).roundToInt().coerceIn(0, max)
-        try {
-          am.setStreamVolume(AudioManager.STREAM_MUSIC, level, 0)
-        } catch (e: SecurityException) {
-          // DND / policy restrictions: the slider simply won't stick
-        }
-      }
-    }
-    invoke.resolve()
-  }
-
-  private fun volumePercent(): Int {
-    val am = ctx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return 0
-    val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-    if (max <= 0) return 0
-    return (am.getStreamVolume(AudioManager.STREAM_MUSIC) * 100.0 / max).roundToInt()
   }
 
   /**
