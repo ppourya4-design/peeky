@@ -623,8 +623,6 @@ $('#t-shelf').addEventListener('dragstart', (e) => { e.preventDefault(); window.
 const DEFAULT_PAL = ['hsl(222 9% 21%)', 'hsl(222 9% 29%)', 'hsl(222 9% 39%)'];     // no cover / nothing recognised: calm graphite grey (not violet)
 // Skins: animated surfaces the pill can wear. At rest they move slowly; with music they react to the sound.
 const THEMES = {
-  nebula: { name: 'Nebula', pal: ['#7a1fd1', '#c0269a', '#ff4f9a'] },
-  crystal: { name: 'Sapphire', pal: ['#2b36d9', '#5a48f0', '#9a6bff'] },
   ember: { name: 'Ember', pal: ['#a8081d', '#dc1230', '#ff4a3d'] },
   venom: { name: 'Venom', pal: ['#3a3d47', '#8a8f9c', '#e6eaf2'] },
   sketch: { name: 'Sketch', pal: ['#2a3047', '#3a4260', '#566080'] },        // paper and ink (the accent colours are the ink's)
@@ -1432,7 +1430,6 @@ const fcan = document.createElement('canvas'); fcan.width = FW; fcan.height = FH
 const fctx = fcan.getContext('2d'), fimg = fctx.createImageData(FW, FH);
 const LIQ = {
   ember: { bg: [12, 2, 4], lo: [150, 8, 22], hi: [255, 52, 40], spec: [255, 200, 170], thr: 0.78, speed: 1 },
-  crystal: { bg: [9, 8, 46], lo: [44, 48, 205], hi: [140, 105, 255], spec: [236, 232, 255], thr: 0.45, speed: 0.8 },
   venom: { bg: [0, 0, 1], lo: [14, 15, 19], hi: [38, 41, 50], spec: [150, 156, 170], thr: 0.62, speed: 0.55 },
 };
 function paintLiquid(g, t, x0, x1, W, A, P) {
@@ -1462,21 +1459,6 @@ function paintLiquid(g, t, x0, x1, W, A, P) {
 }
 const PAINT = {
   sky: paintSky,
-  // a dark galaxy: clouds of magenta and violet drifting over black, a few stars
-  nebula(g, t, dt, x0, x1, W, A) {
-    g.globalAlpha = A; g.fillStyle = '#08030f'; g.fillRect(x0, 0, W, SKY_H);
-    g.globalCompositeOperation = 'lighter';
-    const C = ['255,45,150', '130,60,255', '60,80,230', '255,90,200', '170,40,220'];
-    for (let i = 0; i < 5; i++) {
-      const v = (levels[2 + i * 4] + levels[3 + i * 4]) / 2;
-      const span = W + 120, cx = x0 - 60 + ((((i * 0.2 * span - t * 0.012 * (1 + i * 0.13)) % span) + span) % span);     // all drifting the same way
-      const cy = SKY_H / 2 + Math.cos(t * 0.0006 + i * 2.3) * 10, rad = 26 + v * 40 + (i % 2) * 10;
-      const rg = g.createRadialGradient(cx, cy, 0, cx, cy, rad);
-      rg.addColorStop(0, `rgba(${C[i]},${clamp(0.34 + v * 0.36, 0, 0.6).toFixed(3)})`); rg.addColorStop(1, `rgba(${C[i]},0)`);
-      g.globalAlpha = A; g.fillStyle = rg; g.fillRect(cx - rad, 0, rad * 2, SKY_H);
-    }
-    drawStars(g, t, dt, x0, x1, W, A * 0.8, 2);
-  },
 };
 for (const k of Object.keys(LIQ)) PAINT[k] = (g, t, dt, x0, x1, W, A) => paintLiquid(g, t, x0, x1, W, A, LIQ[k]);
 
@@ -1747,10 +1729,12 @@ function pillPath(g, x, y, w, h, grow, amp, seed, boil) {
 const pillBox = () => { const r = island.getBoundingClientRect(), f = fx.getBoundingClientRect(); return [r.left - f.left, r.top - f.top, r.width, r.height]; };
 const INK = '#1c2236', PENCIL = '#e8b820';
 let penOn = false;
+// his edit (2.1.24): the ink outline crawls a bit slower at rest; once music plays it boils at the original speed
+const musicLive = () => st.media.playing || (local.on && !local.audio.paused);
 function drawSketch(t, dt, on) {
   if (!on) { if (penOn) { penOn = false; fxG.clearRect(0, 0, fx.width, fx.height); } return; }
   penOn = true;
-  const f = fxG, [x, y, w, h] = pillBox(), boil = Math.floor(t / 140) * 1.9;       // the ink line "boils": a slightly different wobble a few times a second
+  const f = fxG, [x, y, w, h] = pillBox(), boil = Math.floor(t / (musicLive() ? 140 : 230)) * 1.9;       // the ink line "boils": a slightly different wobble a few times a second
   f.clearRect(0, 0, fx.width, fx.height);
   f.fillStyle = INK;
   pillPath(f, x + 2.2, y + 3.4, w, h, 1.9, 0.9, 1.3, boil); f.fill();             // the hard shadow, down and to the right
@@ -1760,7 +1744,7 @@ const sparks = [], flecks = Array.from({ length: 46 }, () => [Math.random(), Mat
 let lastSpark = 0;
 // the paper: a soft wash, a few fibres, pencil hatching, a wobbly ink edge, and a yellow pencil line along the bottom that waves with the music
 PAINT.sketch = (g, t, dt, x0, x1, W, A) => {
-  const boil = Math.floor(t / 140) * 1.9;
+  const boil = Math.floor(t / (musicLive() ? 140 : 230)) * 1.9;
   g.globalAlpha = A;
   const wash = g.createLinearGradient(0, 0, 0, SKY_H); wash.addColorStop(0, '#f8f1dd'); wash.addColorStop(1, '#eadfc2');
   g.fillStyle = wash; g.fillRect(x0, 0, W, SKY_H);
@@ -2517,7 +2501,7 @@ const SETTINGS_UI = [
   ['toggle', 'autoHide', 'Hide while a window is underneath'],
   ['toggle', 'hideVideo', 'Stay out of the way for videos'],
   ['eyes', 'eyeStyle', 'Eye style'],
-  ['swatch', 'skin', 'Theme', ['black', 'nebula', 'crystal', 'ember', 'venom', 'sketch', 'iris']],        // cloud, water, lava and ice are parked until they are finished
+  ['swatch', 'skin', 'Theme', ['black', 'ember', 'venom', 'sketch', 'iris']],        // cloud, water, lava and ice are parked until they are finished
   ['toggle', 'musicReact', 'Theme reacts to music'],
   ['toggle', 'visuals', 'Night sky with music (black theme)'],
   ['toggle', 'playerTheme', 'Player window wears the theme'],
@@ -2692,7 +2676,7 @@ const applySettings = (s) => {
   st.shelfOn = s.shelf !== false;
   st.visuals = s.visuals !== false;
   st.playerTheme = s.playerTheme !== false;
-  st.skin = ['nebula', 'crystal', 'ember', 'venom', 'sketch', 'iris'].includes(s.skin) ? s.skin : 'black';       // (a saved 'reactor' simply becomes black)
+  st.skin = ['ember', 'venom', 'sketch', 'iris'].includes(s.skin) ? s.skin : 'black';       // (a saved 'reactor' simply becomes black)
   st.musicTheme = THEMES[s.musicTheme] ? s.musicTheme : 'sky';
   st.smartCopy = s.smartCopy !== false;
   st.react = s.musicReact !== false;

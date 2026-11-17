@@ -294,8 +294,6 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .sws button.on { box-shadow: 0 0 0 1.5px #000, 0 0 0 3px #fff; }
 .sw-black { background: #000; }
 .sw-sky { background: linear-gradient(135deg, #3319a8, #6a42dc); }
-.sw-nebula { background: radial-gradient(circle at 30% 35%, #ff3d9a, #6a1fd1 55%, #08030f); }
-.sw-crystal { background: linear-gradient(120deg, #1b3fd0, #4a35e0 55%, #8a3fe0); }
 .sw-ember { background: linear-gradient(115deg, #0b0203 0 30%, #ff2d1a 30% 38%, #0b0203 38% 62%, #ff5a3a 62% 68%, #0b0203 68%); }
 
 /* ------------------------------------------------ held files, side by side on the pill */
