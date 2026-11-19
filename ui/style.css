@@ -593,3 +593,14 @@ body.iris #n-icon { background-image: linear-gradient(135deg, #3b82f6, #8b5cf6);
 body.iris #island.alerting { box-shadow: 0 0 36px rgba(255, 64, 32, .6) !important; }
 @media (prefers-reduced-motion: reduce) { body.iris .row { animation: none !important; } }
 .sw-iris { background: radial-gradient(circle, #07070c 0 56%, transparent 60%), conic-gradient(#2fe3c0, #5b8cff, #b06bff, #ff5fa8, #ffb25c, #2fe3c0); }
+
+/* Album headers reuse the track rows; only their children are indented. */
+.row.album { width: 100%; text-align: start; gap: 8px; }
+.row.album .album-arrow { flex: none; width: 16px; color: var(--dim); display: grid; place-items: center; }
+.row.album .album-arrow svg { width: 14px; height: 14px; transition: transform .2s; }
+.row.album .album-arrow.open svg { transform: rotate(90deg); }
+.row.album .album-cover { flex: none; width: 28px; height: 28px; border-radius: 8px; background: rgba(128,128,128,.16) center/cover no-repeat; display: grid; place-items: center; color: var(--dim); }
+.row.album .album-cover svg { width: 14px; height: 14px; }
+.row.album b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row.album .album-count { color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums; }
+.row.trk.album-track { padding-inline-start: 32px; }

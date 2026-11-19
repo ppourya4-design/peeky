@@ -51,6 +51,7 @@ const ICONS = {
   calc: `<rect ${S} x="5" y="3.5" width="14" height="17" rx="2.5"/><path ${S} d="M8.5 7.5h7M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01"/>`,
   cal: `<rect ${S} x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path ${S} d="M4 10h16M8.5 3.5V7M15.5 3.5V7"/>`,
   drop: '<path fill="currentColor" d="M12 3.5c3.2 3.9 5.5 6.7 5.5 9.800a5.500 5.500 0 0 1-11 0c0-3.100 2.300-5.900 5.500-9.800z"/>',
+  chevron: `<path ${S} d="M9 6l6 6-6 6"/>`,
   music: `<path ${S} d="M9 17.5V6.5l10-2v11M9 17.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zM19 15.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>`,
   shuffle: `<path ${S} d="M4 7h3c4.500 0 5.500 10 10 10h3M4 17h3c1.700 0 2.900-1.700 4-3.600M13.200 8.500C14.200 7.600 15.300 7 17 7h3M17.500 4.500L20 7l-2.500 2.500M17.500 14.500L20 17l-2.500 2.500"/>`,
   repeat: `<path ${S} d="m17 2 4 4-4 4"/><path ${S} d="M3 11v-1a4 4 0 0 1 4-4h14"/><path ${S} d="m7 22-4-4 4-4"/><path ${S} d="M21 13v1a4 4 0 0 1-4 4H3"/>`,
@@ -98,7 +99,7 @@ const st = {
 // the local music player (its code is further down); declared here because render() may run before that point
 const local = {
   audio: new Audio(), folder: undefined, list: [], idx: -1, on: false, loading: false, scanning: false,
-  url: '', pausedAt: 0, seq: 0, fails: 0, shown: 150, meta: null, listId: 0, cover: null, coverId: 0, scanGen: 0,
+  url: '', pausedAt: 0, seq: 0, fails: 0, shown: 150, meta: null, listId: 0, cover: null, coverId: 0, scanGen: 0, closed: new Set(),
 };
 // the window takes the mouse only while the cursor is on the island (or a text field is open)
 let mouseSent = null;
@@ -918,6 +919,8 @@ function readId3(buf) {
       if (size <= 0 || body + size > u.length) break;
       if (id === 'TIT2') out.title = id3Text(u, body, size);
       else if (id === 'TPE1') out.artist = id3Text(u, body, size);
+      else if (id === 'TPE2') out.albumArtist = id3Text(u, body, size);
+      else if (id === 'TALB') out.album = id3Text(u, body, size);
       else if (id === 'APIC' && !out.cover) out.cover = id3Pic(u, body, size);
       p = body + size;
     }
@@ -963,11 +966,13 @@ function readMp4(buf) {
         const kind = d.getUint32(data[0]), payload = u.subarray(data[0] + 8, data[1]);
         if (key === '\u00A9nam' && kind === 1) out.title = dec.decode(payload).trim();
         else if (key === '\u00A9ART' && kind === 1) out.artist = dec.decode(payload).trim();
-        else if (key === 'aART' && kind === 1 && !out.artist) out.artist = dec.decode(payload).trim();
+        else if (key === 'aART' && kind === 1) out.albumArtist = dec.decode(payload).trim();
+        else if (key === '\u00A9alb' && kind === 1) out.album = dec.decode(payload).trim();
         else if (key === 'covr' && !out.cover && payload.length > 100 && payload.length < 6e6) out.cover = bytesToB64(payload);
       }
       p += size;
     }
+    if (!out.artist && out.albumArtist) out.artist = out.albumArtist;
   } catch { /* a damaged tag is not worth stopping the music for */ }
   return out;
 }
@@ -978,7 +983,7 @@ function readFlac(buf) {
   try {
     const u = new Uint8Array(buf), d = new DataView(buf), dec = new TextDecoder('utf-8');
     if (u.length < 8 || u[0] !== 0x66 || u[1] !== 0x4c || u[2] !== 0x61 || u[3] !== 0x43) return out;   // "fLaC"
-    let p = 4, albumArtist = '';
+    let p = 4;
     while (p + 4 <= u.length) {
       const last = u[p] & 0x80, type = u[p] & 0x7f, len = (u[p + 1] << 16) | (u[p + 2] << 8) | u[p + 3], body = p + 4;
       if (body >= u.length) break;
@@ -994,7 +999,8 @@ function readFlac(buf) {
           const k = s.slice(0, eq).toUpperCase(), v = s.slice(eq + 1).trim();
           if (k === 'TITLE' && !out.title) out.title = v;
           else if (k === 'ARTIST' && !out.artist) out.artist = v;
-          else if (k === 'ALBUMARTIST' && !albumArtist) albumArtist = v;
+          else if (k === 'ALBUM' && !out.album) out.album = v;
+          else if ((k === 'ALBUMARTIST' || k === 'ALBUM ARTIST') && !out.albumArtist) out.albumArtist = v;
         }
       } else if (type === 6 && !out.cover) {               // picture block (big-endian lengths)
         let q = body;
@@ -1006,7 +1012,7 @@ function readFlac(buf) {
       if (last || body + len <= p + 4) break;
       p = body + len;
     }
-    if (!out.artist && albumArtist) out.artist = albumArtist;
+    if (!out.artist && out.albumArtist) out.artist = out.albumArtist;
   } catch { /* a damaged tag is not worth stopping the music for */ }
   return out;
 }
@@ -1047,7 +1053,10 @@ async function indexOne(i, gen) {
   let changed = false;
   if (tags.title && tags.title !== tr.title) { tr.title = tags.title; changed = true; }
   if (tags.artist && tags.artist !== tr.artist) { tr.artist = tags.artist; changed = true; }
-  if (tags.title || tags.artist) { tagCache[tr.path] = [tr.title, tr.artist]; saveTagCache(); }
+  for (const [field, value] of [['album', tags.album], ['albumArtist', tags.albumArtist], ['tagArtist', tags.artist]]) {
+    if ((tr[field] || '') !== (value || '')) { tr[field] = value || ''; changed = true; }
+  }
+  tagCache[tr.path] = [tr.title, tr.artist, tr.album || '', tr.albumArtist || '', tr.tagArtist || '']; saveTagCache();
   if (tags.cover) { tr.thumb = await thumbOf(tags.cover); if (tr.thumb) changed = true; }
   if (!changed || gen !== local.scanGen) return;
   if (local.idx === i && local.meta) { local.meta.title = tr.title; local.meta.artist = tr.artist; pushLocal(); }
@@ -1129,9 +1138,11 @@ async function playLocal(i) {
     trk.tagged = true;
     if (tags.title) trk.title = tags.title;
     if (tags.artist) trk.artist = tags.artist;
-    if (tags.title || tags.artist) { tagCache[trk.path] = [trk.title, trk.artist]; saveTagCache(); }
+    trk.album = tags.album || ''; trk.albumArtist = tags.albumArtist || ''; trk.tagArtist = tags.artist || '';
+    tagCache[trk.path] = [trk.title, trk.artist, trk.album, trk.albumArtist, trk.tagArtist]; saveTagCache();
     if (tags.cover) trk.thumb = await thumbOf(tags.cover);
-    if (tags.title || tags.artist || tags.cover) local.listId++;
+    local.listId++;
+    if (st.stackOpen && st.stackKind === 'music') { const y = stackList.scrollTop; renderStack(); stackList.scrollTop = y; }
   }
 }
 function failLocal(tr) {           // a track that cannot be opened: say so, move on, but never spin forever
@@ -1177,7 +1188,7 @@ async function scanLocal() {
   if (folder !== local.folder) return;                                  // the folder was changed again while reading
   local.list = (Array.isArray(list) ? list : []).map((path) => {
     const named = nameOf(path), hit = tagCache[path];                   // last run's tags, while this run reads them again
-    return { path, title: (hit && hit[0]) || named.title, artist: (hit && hit[1]) || named.artist };
+    return { path, title: (hit && hit[0]) || named.title, artist: (hit && hit[1]) || named.artist, album: (hit && hit[2]) || '', albumArtist: (hit && hit[3]) || '', tagArtist: (hit && hit[4]) || '' };
   });
   local.scanning = false; local.listId++;
   if (st.stackOpen && st.stackKind === 'music') renderStack();
@@ -1228,13 +1239,37 @@ function renderMusic() {
     e.textContent = !folder ? 'Pick the folder your music lives in' : local.scanning ? 'One moment…' : 'No music found in this folder';
     stackList.appendChild(e); return;
   }
-  local.list.slice(0, local.shown).forEach((tr, i) => stackList.appendChild(musicRow(tr, i)));
+  const groups = musicGroups();
+  appendMusicGroups(groups, 0, local.shown);
 }
-stackList.addEventListener('scroll', () => {         // long folders appear in pages
-  if (st.stackKind !== 'music' || !st.stackOpen || local.shown >= local.list.length) return;
-  if (stackList.scrollTop + stackList.clientHeight < stackList.scrollHeight - 60) return;
-  const from = local.shown; local.shown = Math.min(local.list.length, from + 150);
-  for (let i = from; i < local.shown; i++) stackList.appendChild(musicRow(local.list[i], i));
+function musicGroups() { return window.albumGroups(local.list, local.list.map((_, i) => i)); }
+function appendMusicGroups(groups, from, to) {
+  groups.slice(from, to).forEach((group, k) => {
+    if (!group.key) { stackList.appendChild(musicRow(local.list[group.indices[0]], group.indices[0])); return; }
+    const closed = local.closed.has(group.key);
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'row album';
+    row.setAttribute('aria-expanded', String(!closed)); row.style.setProperty('--i', Math.min(from + k, 6));
+    const arrow = document.createElement('span'); arrow.className = 'album-arrow' + (closed ? '' : ' open'); arrow.innerHTML = svg('chevron');
+    const cover = document.createElement('span'); cover.className = 'album-cover';
+    const thumb = group.indices.map(i => local.list[i].thumb).find(Boolean);
+    if (thumb) cover.style.backgroundImage = 'url(' + thumb + ')'; else cover.innerHTML = svg('music');
+    const title = document.createElement('b'); title.textContent = group.album; title.dir = 'auto';
+    const count = document.createElement('span'); count.className = 'album-count'; count.textContent = group.indices.length;
+    row.append(arrow, cover, title, count);
+    row.addEventListener('click', () => {
+      if (local.closed.has(group.key)) local.closed.delete(group.key); else local.closed.add(group.key);
+      const y = stackList.scrollTop; renderStack(); stackList.scrollTop = y;
+    });
+    stackList.appendChild(row);
+    if (!closed) group.indices.forEach(i => { const track = musicRow(local.list[i], i); track.classList.add('album-track'); stackList.appendChild(track); });
+  });
+}
+stackList.addEventListener('scroll', () => {         // long folders appear in pages of complete groups
+  if (st.stackKind !== 'music' || !st.stackOpen) return;
+  const groups = musicGroups();
+  if (local.shown >= groups.length || stackList.scrollTop + stackList.clientHeight < stackList.scrollHeight - 60) return;
+  const from = local.shown; local.shown = Math.min(groups.length, from + 150);
+  appendMusicGroups(groups, from, local.shown);
 });
 // --- the player window: it only shows this player and sends commands back; the audio stays here
 let sentList = -1, sentCover = -1;
@@ -1243,7 +1278,7 @@ function sendPlayer(force) {
   const out = (m) => window.qazi.playerSend('player-state', m), a = local.audio, m = local.meta || {};
   if (force || sentList !== local.listId) {
     sentList = local.listId;
-    out({ t: 'list', folder: local.folder || '', scanning: local.scanning, tracks: local.list.map((tr) => [tr.title, tr.artist, tr.thumb || '']) });
+    out({ t: 'list', folder: local.folder || '', scanning: local.scanning, tracks: local.list.map((tr) => [tr.title, tr.artist, tr.thumb || '', tr.album || '', tr.albumArtist || '', tr.tagArtist || '']) });
   }
   if (force || sentCover !== local.coverId) { sentCover = local.coverId; out({ t: 'cover', id: local.coverId, data: local.cover }); }
   out({

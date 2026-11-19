@@ -261,3 +261,9 @@ body.venom .card { box-shadow: none; background: #000; }
 
 /* ---- Persian interface */
 body.fa { font-family: "Segoe UI Variable Text", "Segoe UI", Tahoma, system-ui, sans-serif; }
+
+.row.album { width: 100%; text-align: start; color: inherit; }
+.row.album .album-arrow svg { transition: transform .2s; }
+.row.album .album-arrow.open svg { transform: rotate(90deg); }
+.row.album .album-count { color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums; }
+.row.album-track { padding-inline-start: 32px; }

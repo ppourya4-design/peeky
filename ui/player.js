@@ -57,7 +57,7 @@ function paintTheme(css) {
 paintTheme('');
 
 // ---- state from the main page
-let S = { on: false, playing: false, idx: -1, pos: 0, dur: 0, vol: 50, mute: false, shuffle: false, repeat: 0, count: 0, scanning: false, folder: '' };
+let S = { on: false, playing: false, idx: -1, pos: 0, dur: 0, vol: 50, mute: false, shuffle: false, repeat: 0, count: 0, scanning: false, folder: '', closed: new Set() };
 let at = performance.now(), tracks = [], folder = '', coverId = -1, query = '', shown = 200, matches = [], lastIdx = -2, scrubbing = false, scrubR = 0, volDrag = false;
 
 const fmt = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
@@ -79,7 +79,7 @@ listen('player-state', (e) => {
       const predicted = S.pos + (now - at), err = reported - predicted;
       m.pos = Math.abs(err) < 350 ? predicted + err * 0.5 : reported;      // a small difference is eased in; a seek or a new song snaps
     } else m.pos = reported;
-    S = m; at = now;
+    m.closed = S.closed; S = m; at = now;
     paintTheme(m.top);
     if (window.PlayerLook) window.PlayerLook.set(m);
     if (window.Aurora) window.Aurora.state(m);
@@ -93,7 +93,7 @@ cmd('hello');
 function applyFilter() {
   const q = query.trim().toLowerCase();
   matches = [];
-  for (let i = 0; i < tracks.length; i++) if (!q || (tracks[i][0] + ' ' + tracks[i][1]).toLowerCase().includes(q)) matches.push(i);
+  for (let i = 0; i < tracks.length; i++) if (!q || (tracks[i][0] + ' ' + tracks[i][1] + ' ' + (tracks[i][3] || '') + ' ' + (tracks[i][4] || '')).toLowerCase().includes(q)) matches.push(i);
   shown = 200; lastIdx = -2; renderList();
 }
 function rowFor(i, k) {
@@ -115,15 +115,41 @@ function renderList() {
   if (S.scanning && !tracks.length) { list.innerHTML = '<div class="empty">Reading the folder…</div>'; return; }
   if (!tracks.length) { list.innerHTML = '<div class="empty">No music found in this folder</div>'; return; }
   if (!matches.length) { list.innerHTML = '<div class="empty">Nothing matches</div>'; return; }
-  const frag = document.createDocumentFragment();
-  matches.slice(0, shown).forEach((i, k) => frag.appendChild(rowFor(i, k)));
+  appendGroups(listGroups(), 0, shown);
+}
+function listGroups() {
+  return window.albumGroups(tracks.map(t => ({ album: t[3], albumArtist: t[4], tagArtist: t[5] })), matches);
+}
+function appendGroups(groups, from, to) {
+  const list = $('#list'), frag = document.createDocumentFragment();
+  groups.slice(from, to).forEach((group, k) => {
+    if (!group.key) { frag.appendChild(rowFor(group.indices[0], from + k)); return; }
+    const closed = S.closed.has(group.key);
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'row album';
+    row.style.setProperty('--k', Math.min(from + k, 12)); row.setAttribute('aria-expanded', String(!closed));
+    const arrow = document.createElement('span'); arrow.className = 'n album-arrow' + (closed ? '' : ' open');
+    arrow.innerHTML = S0 + `<path ${ST} d="M9 6l6 6-6 6"/>` + S1;
+    const cover = document.createElement('span'); cover.className = 'cov';
+    const thumb = group.indices.map(i => tracks[i][2]).find(Boolean);
+    if (thumb) cover.style.backgroundImage = 'url(' + thumb + ')'; else cover.innerHTML = I.note;
+    const title = document.createElement('span'); title.className = 't';
+    const b = document.createElement('b'); b.textContent = group.album; b.dir = 'auto'; title.appendChild(b);
+    const count = document.createElement('span'); count.className = 'album-count'; count.textContent = group.indices.length;
+    row.append(arrow, cover, title, count);
+    row.addEventListener('click', () => {
+      if (S.closed.has(group.key)) S.closed.delete(group.key); else S.closed.add(group.key);
+      const y = list.scrollTop; renderList(); list.scrollTop = y;
+    });
+    frag.appendChild(row);
+    if (!closed) group.indices.forEach(i => { const track = rowFor(i, from + k); track.classList.add('album-track'); frag.appendChild(track); });
+  });
   list.appendChild(frag);
 }
 $('#list').addEventListener('scroll', () => {
-  const l = $('#list');
-  if (shown >= matches.length || l.scrollTop + l.clientHeight < l.scrollHeight - 80) return;
-  const from = shown; shown = Math.min(matches.length, from + 200);
-  for (let k = from; k < shown; k++) l.appendChild(rowFor(matches[k]));
+  const l = $('#list'), groups = listGroups();
+  if (shown >= groups.length || l.scrollTop + l.clientHeight < l.scrollHeight - 80) return;
+  const from = shown; shown = Math.min(groups.length, from + 200);
+  appendGroups(groups, from, shown);
 });
 // scroll only the list itself (scrollIntoView would also scroll the short card around it)
 function keepInView(row) {
