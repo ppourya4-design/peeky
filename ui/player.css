@@ -125,6 +125,10 @@ header { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 
 #goo { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; filter: url(#goo-f); opacity: 0; transition: opacity .3s; }
 body.venom .card { box-shadow: none; background: #000; }
 
+/* Sketch and Iris: the outline around the card is drawn on #rim (ink and paper / a rainbow ring), so the hairline ring goes away */
+#rim { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity .3s; }
+body.sketch .card, body.iris .card { box-shadow: none; }
+
 /* ---------------------------------------------------------------- lyrics */
 .sk, .lpill, .lyrics, .toast { display: none; }
 .sk svg { width: 25px; height: 25px; }

@@ -31,6 +31,7 @@ fn defaults() -> Map<String, Value> {
         "vaultLength": 18, "vaultSymbols": true, "lastUser": "",
         "monitor": "primary",       // which display the island sits on: "primary" or a display's device name
         "lang": "en",               // the interface language: "en" or "fa"
+        "uiScale": 1.0,             // how big the island is: 0.6 to 2.0 (a bigger screen may want it bigger)
         "skin": "black",            // the resting pill: plain black or one of the animated skins
         "musicTheme": "sky",        // what plays behind the track: "sky" (colours of the cover) or a skin
         "netAlerts": true, "sensorDot": true, "smartCopy": true, "musicReact": true, "autoUpdate": true,
@@ -77,6 +78,10 @@ pub fn put(key: &str, value: Value) {
     with(|m| m.insert(key.to_string(), value));
     save();
 }
+/// How big the island is drawn (1.0 = the normal size). Always inside 0.6 .. 2.0.
+pub fn ui_scale() -> f64 {
+    get("uiScale").as_f64().filter(|n| n.is_finite() && (0.6..=2.0).contains(n)).unwrap_or(1.0)
+}
 pub fn payload() -> Value {
     let mut map = with(|m| m.clone());
     map.insert("autoStartOn".into(), autostart_on().into());
@@ -104,6 +109,13 @@ pub fn apply(key: &str, value: &Value) {
         "monitor" => {
             if let Some(v) = value.as_str().filter(|v| v.len() < 64 && !v.chars().any(|c| c.is_control())) {
                 put(key, v.into());
+                crate::hit::REPLACE.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+        "uiScale" => {
+            // the size of the island: the window grows or shrinks with it (see hit::place) and the page is zoomed to match
+            if let Some(n) = value.as_f64().filter(|n| n.is_finite() && (0.6..=2.0).contains(n)) {
+                put(key, ((n * 20.0).round() / 20.0).into());
                 crate::hit::REPLACE.store(true, std::sync::atomic::Ordering::SeqCst);
             }
         }

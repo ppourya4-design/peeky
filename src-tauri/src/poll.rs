@@ -41,7 +41,7 @@ pub fn send(c: Cmd) {
 unsafe fn cover_state(me: u32) -> i32 {
     let h = sys::hwnd();
     let r = sys::rect_of(h);
-    let scale = GetDpiForWindow(h).max(96) as f64 / 96.0;
+    let scale = GetDpiForWindow(h).max(96) as f64 / 96.0 * crate::settings::ui_scale();
     let pt = POINT { x: (r.left + r.right) / 2, y: r.top + (26.0 * scale) as i32 };
     let w = WindowFromPoint(pt);
     if w.0.is_null() {

@@ -2495,6 +2495,7 @@ const SETTINGS_UI = [
   ['button', 'tour', 'What Poyzen can do', 'Show me'],
   ['seg', 'lang', 'Language', [['en', 'English'], ['fa', 'فارسی']]],
   ['monitor', 'monitor', 'Screen'],
+  ['scale', 'uiScale', 'Island size'],
   ['button', 'music', 'Local music', 'Open'],
   ['toggle', 'musicEnabled', 'Music player'],
   ['toggle', 'autoStart', 'Start with Windows'],
@@ -2568,6 +2569,14 @@ function renderSettings() {
       const mk = (icon, d) => { const bt = document.createElement('button'); bt.className = 'ib small'; bt.innerHTML = svg(icon); bt.addEventListener('click', () => window.qazi.setSetting(key, clamp(cur + d, a, b))); return bt; };
       const num = document.createElement('span'); num.className = 'num'; num.textContent = cur + unit;
       row.append(mk('minus', -1), num, mk('plus', 1));
+    } else if (type === 'scale') {
+      // how big the island is (a friend's screen may be bigger than yours): 60% to 200%, in steps of 5. Double-click the number for 100%.
+      const cur = clamp(Number(s[key]) || 1, 0.6, 2);
+      const put = (v) => window.qazi.setSetting(key, Math.round(clamp(v, 0.6, 2) * 20) / 20);
+      const mk = (icon, d) => { const bt = document.createElement('button'); bt.className = 'ib small'; bt.innerHTML = svg(icon); bt.addEventListener('click', () => put(cur + d)); return bt; };
+      const num = document.createElement('span'); num.className = 'num'; num.textContent = Math.round(cur * 100) + '%'; num.title = 'Double-click for 100%';
+      num.addEventListener('dblclick', () => put(1));
+      row.append(mk('minus', -0.05), num, mk('plus', 0.05));
     } else if (type === 'monitor') {
       // which display the island sits on: Primary, or one of the connected screens (numbers as in Windows' display settings)
       const seg = document.createElement('div'); seg.className = 'seg'; row.appendChild(seg);

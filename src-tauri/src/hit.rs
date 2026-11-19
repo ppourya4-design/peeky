@@ -112,13 +112,30 @@ pub fn island_rect() -> Option<RECT> {
     target().map(|m| m.rect)
 }
 
+/// The page is zoomed by the island-size setting (the window is made that much bigger or smaller in `place`), so the page
+/// keeps its 700 x 430 layout and nothing inside it has to know. Only touched when the wanted zoom changed.
+static ZOOM_SET: AtomicU64 = AtomicU64::new(0);
+fn apply_zoom() {
+    use tauri::Manager;
+    let z = crate::settings::ui_scale();
+    if ZOOM_SET.load(SeqCst) == z.to_bits() {
+        return;
+    }
+    if let Some(w) = sys::APP.get().and_then(|a| a.get_webview_window("main")) {
+        if w.set_zoom(z).is_ok() {
+            ZOOM_SET.store(z.to_bits(), SeqCst);
+        }
+    }
+}
+
 /// Top centre of the chosen display, at the size the current scale asks for.
 unsafe fn place(h: HWND) {
+    apply_zoom();
     let (left, top, width, dpi) = match target() {
         Some(m) => (m.rect.left, m.rect.top, m.rect.right - m.rect.left, m.dpi),
         None => (0, 0, GetSystemMetrics(SM_CXSCREEN), GetDpiForWindow(h)),
     };
-    let scale = dpi.max(96) as f64 / 96.0;
+    let scale = dpi.max(96) as f64 / 96.0 * crate::settings::ui_scale();      // the screen's scaling times the island-size setting
     let (w, hgt) = ((WIN_W * scale).round() as i32, (WIN_H * scale).round() as i32);
     let x = left + (width - w) / 2;
     let y = top + OFFSET_Y.load(SeqCst) as i32;
@@ -191,7 +208,7 @@ pub fn start() {
                 continue;
             }
             let r = sys::rect_of(h);
-            let scale = GetDpiForWindow(h).max(96) as f64 / 96.0;
+            let scale = GetDpiForWindow(h).max(96) as f64 / 96.0 * crate::settings::ui_scale();      // the page is zoomed by the same amount, so its pixels are this big
             let (x, y) = ((pt.x - r.left) as f64 / scale, (pt.y - r.top) as f64 / scale);
             let near = x > -80.0 && x < WIN_W + 80.0 && y > -80.0 && y < WIN_H + 80.0;
             if (near || was_near) && (pt.x, pt.y) != last && last_emit.elapsed() >= Duration::from_millis(30) {

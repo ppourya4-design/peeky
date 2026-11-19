@@ -207,6 +207,8 @@ const FA = {
   'Ctrl+Alt+N note · Ctrl+Alt+T text grab': 'Ctrl+Alt+N یادداشت · Ctrl+Alt+T خواندن متن',
   'Language': 'زبان',
   'Screen': 'نمایشگر',
+  'Island size': 'اندازهٔ جزیره',
+  'Double-click for 100%': 'دابل‌کلیک برای ۱۰۰٪',
   'Primary': 'اصلی',
   'The screen the island sits on': 'نمایشگری که جزیره روی آن است',
   'Check for updates': 'بررسی به‌روزرسانی',

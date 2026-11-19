@@ -1,5 +1,5 @@
 /* The player window's backdrop. It wears exactly what the pill wears: the theme's own animation
-   (liquid camo, nebula, venom …) or, on plain Black, the night sky in the colours of the cover.
+   (liquid camo, nebula, venom, sketch, iris …) or, on plain Black, the night sky in the colours of the cover.
    It never turns a theme into a flat colour. The same painters as the pill, scaled up to the window,
    fed by the same loopback levels (the Rust side broadcasts "levels" to every window). */
 (() => {
@@ -163,7 +163,8 @@ function onEdge(f) {                 // a point on the card's outline (a rounded
   d -= fh; if (d < arc) { const a = d / R; return [x0 + W - R + Math.cos(a) * R, y0 + H - R + Math.sin(a) * R, Math.cos(a), Math.sin(a)]; }
   d -= arc; if (d < fw) return [x0 + W - R - d, y0 + H, 0, 1];                   // bottom, right to left
   d -= fw; if (d < arc) { const a = Math.PI / 2 + d / R; return [x0 + R + Math.cos(a) * R, y0 + H - R + Math.sin(a) * R, Math.cos(a), Math.sin(a)]; }
-  d -= arc; return [x0, y0 + H - R - d, -1, 0];                                  // left, upwards
+  d -= arc; if (d < fh) return [x0, y0 + H - R - d, -1, 0];                      // left, upwards
+  d -= fh; { const a = Math.PI + d / R; return [x0 + R + Math.cos(a) * R, y0 + R + Math.sin(a) * R, Math.cos(a), Math.sin(a)]; }   // the top-left corner (it was missing: the outline cut across it)
 }
 const PERIM = () => 2 * (W - 2 * RAD) + 2 * (H - 2 * RAD) + 2 * Math.PI * RAD;
 let gooOn = false;
@@ -203,6 +204,69 @@ function drawGoo(t, dt, on, live) {
   }
 }
 
+// ---- sketch and iris: the same idea as venom, but the outline around the window is something else.
+// Sketch = a hand-inked wobbly line on a paper rim with a hard shadow that "boils", and little asterisks on a beat (same recipe as the pill).
+// Iris = a rainbow ring with a soft halo that turns slowly and swells with the music. Both live in the transparent margin around the card, on their own canvas (no goo filter).
+const rim = document.getElementById('rim'), rg = rim.getContext('2d');
+function sizeRim() { rim.width = W + 2 * MARGIN; rim.height = H + 2 * MARGIN; }
+sizeRim(); window.addEventListener('resize', sizeRim);
+const INK = '#1c2236', PAPER = '#f5eedb';
+const rimSparks = []; let lastSpark = 0, rimKind = null;
+// the card's outline as a path: `grow` pushes it outwards, `amp` wobbles it like a hand-drawn line (a new wobble every `boil`)
+function rimPath(c, grow, amp, seed, boil, ox, oy) {
+  const L = PERIM(); ox = ox || 0; oy = oy || 0;
+  const w = (k) => Math.round(k * L / 6.2832) * 6.2832 / L, k1 = w(0.13), k2 = w(0.31), k3 = w(0.71);   // whole waves around the outline, so the line closes without a seam
+  c.beginPath();
+  for (let d = 0; d < L; d += 3) {
+    const [x, y, nx, ny] = onEdge(d / L);
+    const o = grow + amp * (Math.sin(d * k1 + seed + boil) + 0.55 * Math.sin(d * k2 + seed * 1.7 - boil * 1.3) + 0.3 * Math.sin(d * k3 + seed * 0.6 + boil * 2));
+    if (d === 0) c.moveTo(x + nx * o + ox, y + ny * o + oy); else c.lineTo(x + nx * o + ox, y + ny * o + oy);
+  }
+  c.closePath();
+}
+function rimSketch(t, dt, live) {
+  const c = rg, boil = Math.floor(t / (live ? 140 : 230)) * 1.9;
+  c.globalAlpha = 1;
+  c.fillStyle = INK; rimPath(c, 5.4, 0.9, 1.3, boil, 2.4, 3.6); c.fill();          // the hard shadow, down and to the right
+  c.fillStyle = INK; rimPath(c, 5.2, 0.8, 4.1, boil + 5); c.fill();                // the ink line
+  c.fillStyle = PAPER; rimPath(c, 3.2, 0.7, 2.2, boil + 2.5); c.fill();            // the paper rim, just outside the card (the card covers the inside)
+  if (bass - bassSlow > 0.12 && rimSparks.length < 4 && t - lastSpark > 260) { lastSpark = t; rimSparks.push({ f: Math.random(), life: 1, r: 3.2 + Math.random() * 2 }); }
+  c.strokeStyle = INK; c.lineWidth = 1.3; c.lineCap = 'round';                      // little hand-drawn asterisks on a beat
+  for (let i = rimSparks.length - 1; i >= 0; i--) {
+    const k = rimSparks[i]; k.life -= dt * 1.6;
+    if (k.life <= 0) { rimSparks.splice(i, 1); continue; }
+    const [x, y, nx, ny] = onEdge(k.f), cx = x + nx * 12.5, cy = y + ny * 12.5;
+    c.globalAlpha = k.life * 0.8; c.beginPath();
+    for (let q = 0; q < 3; q++) { const an = q * 1.0472 + t * 0.002; c.moveTo(cx - Math.cos(an) * k.r, cy - Math.sin(an) * k.r); c.lineTo(cx + Math.cos(an) * k.r, cy + Math.sin(an) * k.r); }
+    c.stroke();
+  }
+  c.globalAlpha = 1;
+}
+function rimIrisGrad(c, t) {
+  const ph = (t * 0.018 * (1 + energy * 2.5)) % 360, cx = MARGIN + W / 2, cy = MARGIN + H / 2;
+  const gr = typeof c.createConicGradient === 'function' ? c.createConicGradient(-Math.PI / 2, cx, cy) : c.createLinearGradient(MARGIN, MARGIN, MARGIN + W, MARGIN + H);
+  for (let i = 0; i <= 8; i++) gr.addColorStop(i / 8, `hsl(${Math.round((ph + i / 8 * 360) % 360)} 78% 64%)`);   // first and last stop share a hue, so the ring has no seam
+  return gr;
+}
+function rimIris(t) {
+  const c = rg, gr = rimIrisGrad(c, t);
+  c.save(); c.filter = 'blur(7px)'; c.globalAlpha = clamp(0.4 + bass * 0.45 + energy * 0.3, 0, 0.95);     // the soft halo
+  c.strokeStyle = gr; c.lineWidth = 4 + bass * 5; rimPath(c, 1.6, 0, 0, 0); c.stroke(); c.restore();
+  c.globalAlpha = 1; c.strokeStyle = gr; c.lineWidth = 3; rimPath(c, 0.9, 0, 0, 0); c.stroke();         // the ring (its inner half hides under the card)
+}
+function drawRim(t, dt, look, on, live) {
+  const kind = on && (look === 'sketch' || look === 'iris') ? look : null;
+  if (kind !== rimKind) {
+    if (rimKind) document.body.classList.remove(rimKind);
+    rimKind = kind; rg.clearRect(0, 0, rim.width, rim.height); rimSparks.length = 0;
+    rim.style.opacity = kind ? 1 : 0;
+    if (kind) document.body.classList.add(kind);
+  }
+  if (!kind) return;
+  rg.clearRect(0, 0, rim.width, rim.height);
+  if (kind === 'sketch') rimSketch(t, dt, live); else rimIris(t);
+}
+
 // ---- the loop
 // Plain Black is completely plain (no animation at all, just the cover-coloured gradient the page paints itself).
 // A skin animates *behind the cover and the title* only: it fades out before the seek bar, so the controls always sit on calm dark.
@@ -217,7 +281,7 @@ function frame(t) {
   if (want) drawn = want;
   A += ((want ? 1 : 0) - A) * (1 - Math.pow(0.93, Math.max(dt, 0.016) * 60));
   if (!want && A < 0.01) {
-    if (!idle) { g.clearRect(0, 0, W, H); drawGoo(t, 0, false); idle = true; }
+    if (!idle) { g.clearRect(0, 0, W, H); drawGoo(t, 0, false); drawRim(t, 0, null, false, false); idle = true; }
     lastT = t; return;
   }
   idle = false;
@@ -234,6 +298,7 @@ function frame(t) {
   g.fillStyle = fade; g.fillRect(0, 0, W, H);
   g.globalCompositeOperation = 'source-over';
   drawGoo(t, dt, drawn === 'venom' && A > 0.5, live);
+  drawRim(t, dt, drawn, A > 0.5, live);
 }
 requestAnimationFrame(frame);
 
