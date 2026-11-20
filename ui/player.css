@@ -167,11 +167,12 @@ body.sketch .card, body.iris .card { box-shadow: none; }
 .lyrics.plain .lines { position: static; padding: 20px 0; }
 .ln { position: relative; margin: 5px -8px; padding: 9px 18px; border-radius: 16px; cursor: pointer; font-size: 17px; line-height: 1.45; font-weight: 650; color: rgba(255, 255, 255, .42);
   filter: blur(calc(var(--d, 4) * .4px)); opacity: calc(1 - var(--d, 4) * .10); transition: color .35s, filter .45s, opacity .45s, background .2s; }
-.ln .tr { direction: rtl; text-align: center; font-family: 'Vazirmatn', 'Segoe UI', sans-serif; font-size: 13.5px; font-weight: 500; line-height: 1.75; color: rgba(255, 255, 255, .55); margin-top: 4px; overflow-wrap: anywhere; }
+.ln .tr { direction: rtl; text-align: left; font-family: 'Vazirmatn', 'Segoe UI', sans-serif; font-size: 13.5px; font-weight: 500; line-height: 1.75; color: rgba(255, 255, 255, .55); margin-top: 4px; overflow-wrap: anywhere; }
 .ln.cur .tr { color: rgba(255, 255, 255, .88); font-weight: 700; }
 .lyrics.plain .ln .tr { font-size: 13px; }
-.ln .x { display: block; text-align: center; text-wrap: balance; overflow-wrap: anywhere; }
-.ln .tm { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 9px; background: rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .85); opacity: 0; transition: opacity .15s; font-variant-numeric: tabular-nums; }
+.ln .x { display: block; text-align: left; text-wrap: balance; overflow-wrap: anywhere; transform-origin: left center; transition: transform .35s; }
+.ln.cur .x { transform: scale(1.1); }
+.ln .tm { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 9px; background: rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .85); opacity: 0; transition: opacity .15s; font-variant-numeric: tabular-nums; }
 .ln:hover { background: rgba(255, 255, 255, .09); filter: none; opacity: 1; }
 .ln:hover .tm { opacity: 1; }
 .ln.cur { color: #fff; filter: none; opacity: 1; }
