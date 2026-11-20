@@ -368,6 +368,15 @@ function lyrRender() {
       frag.appendChild(row); L.els.push(row);
     });
     lnEl.appendChild(frag);
+    // the translation follows its own line: a short line hugs the left, so its
+    // translation sits under the words; a line that fills (or wraps) the row
+    // reads as centred, so its translation centres too
+    lnEl.querySelectorAll('.ln').forEach((row) => {
+      const tr = row.querySelector('.tr'), x = row.querySelector('.x');
+      if (!tr || !x || !x.clientWidth) return;
+      const rg = document.createRange(); rg.selectNodeContents(x);
+      if (rg.getBoundingClientRect().width / x.clientWidth > 0.72) row.classList.add('trc');
+    });
     if (s === 'plain') lyEl.scrollTop = 0;
   } else if (s === 'search') {
     lmsg.innerHTML = '<div class="sker"><i style="width:86%"></i><i style="width:100%"></i><i style="width:62%"></i><i style="width:92%"></i><i style="width:48%"></i></div><p>Matching title, artist, album and length…</p>';
