@@ -399,6 +399,7 @@ function setLang(next) {
   const de = document.documentElement;
   de.dataset.lang = lang; de.lang = lang;
   document.body.classList.toggle('fa', lang === 'fa');
+  document.documentElement.lang = lang === 'fa' ? 'fa' : 'en';
   if (obs) obs.disconnect();
   sweep(document.body);
   obs = null; startObserver();
