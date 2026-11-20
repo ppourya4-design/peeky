@@ -372,7 +372,7 @@ function lyrRender() {
     lnEl.appendChild(frag);
     if (s === 'plain') lyEl.scrollTop = 0;
   } else if (s === 'search') {
-    lmsg.innerHTML = '<div class="sker"><i style="width:86%"></i><i style="width:100%"></i><i style="width:62%"></i><i style="width:92%"></i><i style="width:48%"></i></div><p>Matching title, artist, album and length…</p>';
+    lmsg.innerHTML = Date.now() - (L.searchAt || 0) < 350 ? '' : '<div class="sker"><i style="width:86%"></i><i style="width:100%"></i><i style="width:62%"></i><i style="width:92%"></i><i style="width:48%"></i></div><p>Matching title, artist, album and length…</p>';   // a fast match never flashes the skeleton
   } else if (s === 'none') lmsg.innerHTML = msgBox(I.nolyrics, 'No lyrics found', 'LRCLIB has nothing for this track yet.', true);
   else if (s === 'error') lmsg.innerHTML = msgBox(I.nolyrics, "Can't reach LRCLIB", 'Check the internet connection and try again.', true);
   else if (s === 'instr') lmsg.innerHTML = msgBox(I.note, 'Instrumental', 'This track has no lyrics.', false);
@@ -406,8 +406,9 @@ function lyrTrack(force) {
   const c = Lyr.store.get(key);
   if (c) { if (c.plain && !Array.isArray(c.plain)) c.plain = Lyr.parsePlain(c.plain); applyLyr(c); return; }
   if (!L.on && !Lyr.store.flag('used')) { setLyr('idle'); return; }
-  setLyr('search');
-  const tok = L.tok; L.timer = setTimeout(() => lyrSearch(tok), 450);      // skipping through songs quickly does not search for each one
+  L.searchAt = Date.now(); setLyr('search');
+  const tok = L.tok; setTimeout(() => { if (L.state === 'search' && L.tok === tok) lyrRender(); }, 380);   // the skeleton only appears if the search is really taking a while
+  L.timer = setTimeout(() => lyrSearch(tok), 450);      // skipping through songs quickly does not search for each one
 }
 function lyrAgain() { Lyr.store.drop(L.key); lyrTrack(true); }
 

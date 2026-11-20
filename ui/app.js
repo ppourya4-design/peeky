@@ -1118,7 +1118,8 @@ async function playLocal(i) {
   const seq = ++local.seq, tr = local.list[i], ext = (tr.path.match(/\.([^.\\/]+)$/) || [])[1] || '';
   if (!local.on && st.media.active && st.media.playing) window.qazi.media('toggle');     // the other player stops first
   local.idx = i; local.on = true; local.loading = true;
-  local.meta = nameOf(tr.path); local.audio.pause(); setArt(null); local.cover = null; local.coverId++; pushLocal();
+  const nm = nameOf(tr.path);      // paint with the best names already known (the list row / tag cache) — the raw filename only shows for a track never tagged anywhere
+  local.meta = { title: tr.title || nm.title, artist: tr.artist || nm.artist }; local.audio.pause(); setArt(tr.thumb || null); local.cover = tr.thumb || null; local.coverId++; pushLocal();
   if (st.stackOpen && st.stackKind === 'music') renderStack();
   let buf = null;
   try { buf = await window.qazi.musicRead(tr.path); } catch { buf = null; }
