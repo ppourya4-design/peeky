@@ -593,3 +593,57 @@ body.iris #n-icon { background-image: linear-gradient(135deg, #3b82f6, #8b5cf6);
 body.iris #island.alerting { box-shadow: 0 0 36px rgba(255, 64, 32, .6) !important; }
 @media (prefers-reduced-motion: reduce) { body.iris .row { animation: none !important; } }
 .sw-iris { background: radial-gradient(circle, #07070c 0 56%, transparent 60%), conic-gradient(#2fe3c0, #5b8cff, #b06bff, #ff5fa8, #ffb25c, #2fe3c0); }
+
+/* more tools: the arrow before the gear, and the small pill it opens */
+.badge.dot { min-width: 7px; width: 7px; height: 7px; padding: 0; top: 2px; right: 2px; }
+#t-more svg { transition: transform .25s var(--spring); }
+#t-more.active svg { transform: rotate(180deg); }
+.ib.ovf { display: none; }
+.row.moretools { height: auto; padding: 6px; gap: 2px; flex-wrap: wrap; justify-content: center; border-radius: 22px; cursor: default; max-width: 100%; }
+.row.moretools:hover { transform: none; background: #000; }
+.mtile { position: relative; width: 64px; padding: 7px 2px 5px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: rgba(255, 255, 255, .85); transition: background .15s, transform .2s var(--spring), color .15s; }
+.mtile:hover { background: rgba(255, 255, 255, .16); color: #fff; }
+.mtile:active { transform: scale(.9); }
+.mtile.on { background: #fff; color: #000; }
+.mtile .mi { position: relative; width: 20px; height: 20px; display: grid; place-items: center; }
+.mtile .mi svg { width: 18px; height: 18px; }
+.mtile .ml { font-size: 10px; line-height: 1.1; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.fa .mtile .ml { font-size: 10.5px; }
+
+/* the calendar that opens when the date on the tray is clicked */
+#stack.cal #stack-list { max-height: none; }
+#t-date.active { color: #fff; }
+.row.calcard { height: auto; flex-direction: column; align-items: stretch; gap: 1px; padding: 6px 10px 8px; border-radius: 22px; cursor: default; }
+.row.calcard:hover { transform: none; background: #000; }
+.calhd { display: flex; align-items: center; gap: 4px; height: 28px; margin-bottom: 2px; }
+.calhd .nv { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: rgba(255, 255, 255, .75); transition: background .15s, transform .2s var(--spring); }
+.calhd .nv svg { width: 15px; height: 15px; }
+.calhd .nv:hover { background: rgba(255, 255, 255, .16); color: #fff; }
+.calhd .nv:active { transform: scale(.88); }
+.calhd .ttl { flex: 1; min-width: 0; text-align: left; font-size: 13px; font-weight: 600; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.calseg { flex: none; display: flex; background: rgba(255, 255, 255, .1); border-radius: 12px; padding: 2px; }
+.calseg button { font-size: 11px; padding: 2px 8px; border-radius: 10px; color: var(--dim); transition: background .15s, color .15s; }
+.calseg button.on { background: #fff; color: #000; }
+.calwk, .calgr { display: grid; grid-template-columns: repeat(7, 1fr); }
+.calwk span { font-size: 10.5px; text-align: center; color: rgba(255, 255, 255, .4); height: 16px; line-height: 16px; }
+.cday { position: relative; width: 100%; height: 29px; border-radius: 10px; display: grid; place-items: center; font-size: 12.5px; font-variant-numeric: tabular-nums; transition: background .15s, transform .2s var(--spring); }
+.cday:hover { background: rgba(255, 255, 255, .14); }
+.cday:active { transform: scale(.9); }
+.cday.out { color: rgba(255, 255, 255, .28); }
+.cday.sel { background: rgba(255, 255, 255, .18); }
+.cday.td { background: #fff; color: #000; }
+.cday.td.sel { box-shadow: 0 0 0 2px #a98bff; }
+.cday i.cdot { position: absolute; bottom: 2px; left: 50%; margin-left: -2px; width: 4px; height: 4px; border-radius: 50%; background: #a98bff; }
+.cday.td i.cdot { background: #6a45ff; }
+.row.caladd { height: 30px; justify-content: space-between; padding: 0 6px 0 14px; font-size: 12px; }
+.caladd .lb { color: rgba(255, 255, 255, .78); overflow: hidden; text-overflow: ellipsis; }
+.caladd .pl { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: rgba(148, 102, 255, .22); color: #cdbbff; }
+.caladd .pl svg { width: 12px; height: 12px; }
+.calrems { width: 100%; max-height: 80px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px 0 4px; scrollbar-width: none; }
+.calrems::-webkit-scrollbar { display: none; }
+body.sketch .calseg { background: rgba(28, 34, 54, .12); }
+body.sketch .calseg button.on, body.sketch .cday.td { background: var(--ink); color: var(--paper); }
+body.sketch .cday:hover, body.sketch .cday.sel { background: rgba(28, 34, 54, .14); }
+body.sketch .cday.out, body.sketch .calwk span { color: var(--dim); }
+body.sketch .calhd .nv, body.sketch .caladd .lb { color: var(--ink); }
+body.sketch .caladd .pl { background: rgba(28, 34, 54, .12); color: var(--ink); }

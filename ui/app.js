@@ -22,6 +22,9 @@ const ICONS = {
   timer: `<circle ${S} cx="12" cy="13.5" r="7"/><path ${S} d="M12 10v3.5l2.2 1.6M9.5 3h5"/>`,
   bell: `<path ${S} d="M9.5 19.5a2.6 2.6 0 0 0 5 0M6 16.5h12c-1-1.3-1.6-2.6-1.6-5V10a4.4 4.4 0 0 0-8.8 0v1.5c0 2.4-.6 3.7-1.6 5z"/>`,
   close: `<path ${S} d="M7 7l10 10M17 7L7 17"/>`,
+  chevdown: `<path ${S} d="M6.5 9.5l5.5 5.5 5.5-5.5"/>`,
+  chevleft: `<path ${S} d="M14.5 6.5L9 12l5.5 5.5"/>`,
+  chevright: `<path ${S} d="M9.5 6.5L15 12l-5.5 5.5"/>`,
   more: '<circle fill="currentColor" cx="5.5" cy="12" r="1.9"/><circle fill="currentColor" cx="12" cy="12" r="1.9"/><circle fill="currentColor" cx="18.5" cy="12" r="1.9"/>',
   minus: `<path ${S} d="M6 12h12"/>`,
   plus: `<path ${S} d="M6 12h12M12 6v12"/>`,
@@ -63,6 +66,7 @@ const svg = (name) => `<svg viewBox="0 0 24 24">${ICONS[name] || ''}</svg>`;
 const setIcon = (el, name) => { if (el.dataset.cur !== name) { el.innerHTML = svg(name); el.dataset.cur = name; } };
 $$('[data-icon]').forEach((el) => setIcon(el, el.dataset.icon));
 const badge = document.createElement('i'); badge.className = 'badge'; $('#t-inbox').appendChild(badge);
+const moreBtn = $('#t-more'), moreDot = document.createElement('i'); moreDot.className = 'badge dot'; moreBtn.appendChild(moreDot);
 const shelfBadge = document.createElement('i'); shelfBadge.className = 'badge quiet'; $('#t-shelf').appendChild(shelfBadge);
 
 // ------------------------------------------------------------ state
@@ -375,6 +379,7 @@ views.notif.addEventListener('click', () => {
 function updateBadge() {       // the count lives on the bell inside the menu only — nothing is added next to the clock
   badge.textContent = st.unseen > 9 ? '9+' : st.unseen;
   badge.classList.toggle('on', st.unseen > 0);
+  paintMoreDot();
 }
 const rel = (ts) => {
   const m = Math.floor((Date.now() - ts) / 60000);
@@ -456,6 +461,8 @@ function renderStack() {
   if (st.stackKind === 'speedo') { renderSpeedo(); return; }
   if (st.stackKind === 'music') { renderMusic(); return; }
   if (st.stackKind === 'tour') { renderTour(); return; }
+  if (st.stackKind === 'more') { renderMore(); return; }
+  if (st.stackKind === 'calendar') { renderCalendar(); return; }
   $('#stack-clear').textContent = 'Clear all';
   $('#stack-clear').classList.toggle('hidden', !st.history.length);
   if (!st.history.length) {
@@ -496,6 +503,9 @@ function setStack(open, kind) {
   $('#t-gear').classList.toggle('active', open && st.stackKind === 'settings');
   $('#t-speedo').classList.toggle('active', open && st.stackKind === 'speedo');
   $('#t-music').classList.toggle('active', open && st.stackKind === 'music');
+  $('#t-more').classList.toggle('active', open && st.stackKind === 'more');
+  $('#t-date').classList.toggle('active', open && st.stackKind === 'calendar');
+  if (open) { stackEl.classList.toggle('cal', kind === 'calendar'); if (kind === 'calendar') calInit(); }
   if (open && kind === 'speedo') loadLocations();
   if (open && kind === 'vault') window.qazi.vaultList().then(setVault);
   island.classList.remove('hover');
@@ -1944,10 +1954,8 @@ function dateText(d) {
   if (st.calendar === 'both') return g + ' · ' + sh;
   return wk + ', ' + g;
 }
-$('#t-date').addEventListener('click', () => {
-  st.calendar = CALENDARS[(CALENDARS.indexOf(st.calendar) + 1) % CALENDARS.length];
-  window.qazi.setCalendar(st.calendar); tick(); render();
-});
+// the look of this date (Gregorian, Shamsi, both…) is chosen in Settings; a click on it opens the calendar
+$('#t-date').addEventListener('click', () => setStack(!(st.stackOpen && st.stackKind === 'calendar'), 'calendar'));
 const mmss = (ms) => { const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600); return (h ? h + ':' : '') + pad(Math.floor(s % 3600 / 60)) + ':' + pad(s % 60); };
 function tick() {
   const d = new Date(), hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
@@ -2008,19 +2016,68 @@ $$('[data-act]').forEach((b) => b.addEventListener('click', async () => {
 // ------------------------------------------ the tool row is the owner's: hold a tool 3 s, then drag it into place
 const toolView = document.querySelector('[data-view="tools"]');
 const toolKey = (b) => b.dataset.act || b.id.replace(/^t-/, '');
+
+// ------------------------------------------ too many tools: the extra ones fold behind an arrow (switch off in Settings)
+// The first FOLD_AFTER tools stay on the pill; the rest wait behind the small arrow that sits just before the gear
+// and open as a second pill underneath. Tools that come and go by themselves (the track button, the file shelf,
+// Speedo) are never folded. Lower FOLD_AFTER to fold sooner, raise it to fold later. The order is the owner's own
+// (hold a tool, drag it): whatever is dragged to the end is what gets folded.
+const FOLD_AFTER = 9;
+const FOLD_NEVER = new Set(['track', 'shelf', 'speedo']);
+const TOOL_LABEL = { play: 'Play / Pause', screenshot: 'Screenshot', ocr: 'Text grab', clips: 'Clipboard', music: 'Music', notes: 'Notes', vault: 'Passwords', timer: 'Timer', inbox: 'Notifications', shelf: 'File shelf', speedo: 'VPN' };
+moreBtn.addEventListener('click', () => setStack(!(st.stackOpen && st.stackKind === 'more'), 'more'));
+function paintMoreDot() {          // a folded bell still tells you something is waiting
+  const inbox = $('#t-inbox');
+  moreDot.classList.toggle('on', !moreBtn.classList.contains('hidden') && inbox.classList.contains('ovf') && st.unseen > 0);
+}
+function foldTools() {
+  const fold = (st.settings || {}).toolsFold !== false && !toolEdit;
+  const gear = toolView.querySelector('[data-act="settings"]');
+  let n = 0, any = false;
+  for (const b of toolView.querySelectorAll('.ib')) {
+    if (b === moreBtn || b === gear) continue;
+    let over = false;
+    if (fold && !b.classList.contains('hidden') && !FOLD_NEVER.has(toolKey(b))) over = ++n > FOLD_AFTER;
+    b.classList.toggle('ovf', over);
+    any = any || over;
+  }
+  moreBtn.classList.toggle('hidden', !any);
+  paintMoreDot();
+  if (st.stackOpen && st.stackKind === 'more') { if (any) renderStack(); else setStack(false); }
+}
+function renderMore() {
+  $('#stack-clear').classList.add('hidden');
+  const row = document.createElement('div'); row.className = 'row moretools'; row.style.setProperty('--i', 0);
+  toolView.querySelectorAll('.ib.ovf').forEach((b) => {
+    const k = toolKey(b);
+    const t = document.createElement('button'); t.className = 'mtile' + (b.classList.contains('active') ? ' on' : '');
+    const ic = document.createElement('span'); ic.className = 'mi'; ic.innerHTML = svg(b.dataset.cur || b.dataset.icon);
+    const lb = document.createElement('span'); lb.className = 'ml'; lb.textContent = TOOL_LABEL[k] || b.title;
+    t.append(ic, lb);
+    if (k === 'inbox' && st.unseen > 0) { const d = document.createElement('i'); d.className = 'badge on'; d.textContent = st.unseen > 9 ? '9+' : st.unseen; ic.appendChild(d); }
+    t.addEventListener('click', (e) => {
+      e.stopPropagation();
+      b.click();                                                   // the very same action as the button on the pill
+      if (st.stackOpen && st.stackKind === 'more') setStack(false); // quick actions (screenshot, play…) close this pill again
+    });
+    row.appendChild(t);
+  });
+  stackList.appendChild(row);
+}
 function applyToolOrder(order) {
   if (!Array.isArray(order) || !order.length) return;
   const pos = new Map(order.map((k, i) => [k, i]));
-  [...toolView.querySelectorAll('.ib')].map((b, i) => [b, i])
+  [...toolView.querySelectorAll('.ib')].filter((b) => b !== moreBtn).map((b, i) => [b, i])
     .sort((x, y) => ((pos.get(toolKey(x[0])) ?? 99) - (pos.get(toolKey(y[0])) ?? 99)) || (x[1] - y[1]))
     .forEach(([b]) => toolView.appendChild(b));
+  keepSettingsLast();
 }
 const HOLD_MS = 3000;                      // hold a tool this long and the row becomes arrangeable
 let toolEdit = null;                       // { prevManual, idle } while the row is being arranged
 let pressTimer = null, pressXY = null, pressBtn = null, pressId = 0, lastX = 0;
 let dragBtn = null, dragFrom = 0;
 const settingsBtn = () => toolView.querySelector('[data-act="settings"]');
-const keepSettingsLast = () => { const g = settingsBtn(); if (g && g !== toolView.lastElementChild) toolView.appendChild(g); };   // the gear never moves: it is how you finish
+const keepSettingsLast = () => { const g = settingsBtn(); if (g && g !== toolView.lastElementChild) toolView.appendChild(g); if (g && moreBtn.nextElementSibling !== g) toolView.insertBefore(moreBtn, g); };   // the gear never moves: it is how you finish
 
 function cancelHold() {
   clearTimeout(pressTimer); pressTimer = null; pressXY = null;
@@ -2040,6 +2097,7 @@ function enterToolEdit(b, pointerId) {
   st.manual = 'tools';
   jiggleSetup();
   toolView.classList.add('editing');
+  foldTools();                                   // arranging shows every tool, folded ones included
   const sh = $('#t-shelf'); if (sh) sh.draggable = false;
   render();
   if (b && b !== settingsBtn()) {
@@ -2055,6 +2113,7 @@ function exitToolEdit() {
   if (dragBtn) { dragBtn.classList.remove('drag'); dragBtn.style.transform = ''; dragBtn = null; }
   st.manual = toolEdit.prevManual; toolEdit = null;
   toolView.classList.remove('editing');
+  foldTools();
   const sh = $('#t-shelf'); if (sh) sh.draggable = true;
   render();
 }
@@ -2107,7 +2166,7 @@ toolView.addEventListener('pointermove', (e) => {
   const shift = dragBtn.offsetLeft - before;
   if (shift) { dragFrom += shift; dragBtn.style.transform = `translateX(${e.clientX - dragFrom}px) scale(1.12)`; }
 });
-function saveToolOrder() { window.qazi.setSetting('toolOrder', [...toolView.querySelectorAll('.ib')].map(toolKey)); }
+function saveToolOrder() { window.qazi.setSetting('toolOrder', [...toolView.querySelectorAll('.ib')].filter((b) => b !== moreBtn).map(toolKey)); }
 const endToolPress = () => {
   cancelHold();
   if (!dragBtn) return;
@@ -2262,7 +2321,7 @@ const fmtWhen = (ts) => {
 };
 function setNotes(list) {
   st.notes = Array.isArray(list) ? list : [];
-  if (st.stackOpen && st.stackKind === 'notes') { const y = stackList.scrollTop; renderStack(); stackList.scrollTop = y; }
+  if (st.stackOpen && (st.stackKind === 'notes' || st.stackKind === 'calendar')) { const y = stackList.scrollTop; renderStack(); stackList.scrollTop = y; }
 }
 window.qazi.onNotes(setNotes);
 window.qazi.notesGet().then(setNotes);
@@ -2337,6 +2396,126 @@ function stopAlert() {
   face.className = '';
 }
 island.addEventListener('pointerdown', () => { if (alertOn) stopAlert(); });
+
+// ------------------------------------------------------------ calendar
+// Click the date on the tray and a month opens under the pill: Gregorian or Shamsi (the switch at the top).
+// A day that holds a reminder wears a dot. Click a day to see its reminders, and the + to add one for that day:
+// "18:30 gym" or "at 6pm gym" (no time = 09:00). Which calendar opens first follows Settings → Date.
+const cal = { mode: 'g', gy: 0, gm: 0, sy: 0, sm: 0, sel: new Date() };
+const faNum = new Intl.NumberFormat('fa-IR', { useGrouping: false });
+const fPers = new Intl.DateTimeFormat('en-US-u-ca-persian-nu-latn', { year: 'numeric', month: 'numeric', day: 'numeric' });
+const fShMonth = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { month: 'long' });
+const fShWeekLong = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long' });
+const SH_WEEK = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];            // Saturday first
+const dayKey = (d) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+function shParts(d) { const o = {}; for (const p of fPers.formatToParts(d)) o[p.type] = +p.value; return { y: o.year, m: o.month, d: o.day }; }
+function shFirst(y, m) {                                          // the Gregorian date of the 1st of Shamsi month m
+  const g = new Date(y + 621, 2, 1); g.setDate(g.getDate() + (m - 1) * 30 - 35);
+  for (let i = 0; i < 140; i++) { const p = shParts(g); if (p.y === y && p.m === m && p.d === 1) return g; g.setDate(g.getDate() + 1); }
+  return g;
+}
+function calView(d) { const p = shParts(d); cal.gy = d.getFullYear(); cal.gm = d.getMonth(); cal.sy = p.y; cal.sm = p.m; }
+function calInit() {
+  const n = new Date();
+  cal.sel = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  cal.mode = st.calendar === 'shamsi' || st.calendar === 'shamsi-fa' ? 's' : 'g';
+  calView(cal.sel);
+}
+function calStep(dir) {
+  if (cal.mode === 's') { cal.sm += dir; if (cal.sm > 12) { cal.sm = 1; cal.sy++; } if (cal.sm < 1) { cal.sm = 12; cal.sy--; } }
+  else { cal.gm += dir; if (cal.gm > 11) { cal.gm = 0; cal.gy++; } if (cal.gm < 0) { cal.gm = 11; cal.gy--; } }
+  renderStack();
+}
+function calDayLabel(d) {
+  if (cal.mode === 's') { const p = shParts(d); return fShWeekLong.format(d) + ' ' + faNum.format(p.d) + ' ' + fShMonth.format(d); }
+  return fWeek.format(d) + ', ' + fGreg.format(d);
+}
+// "18:30 gym" / "at 6pm gym" / «ساعت ۱۸:۳۰ باشگاه» on a given day; no time at all means 09:00
+function parseOnDay(raw, day) {
+  const text = faDigits(raw);
+  const m = /(?:^|\s)(?:(?:at|ساعت)\s+(\d{1,2})(?::(\d{2}))?|(\d{1,2}):(\d{2}))\s*(am|pm)?(?=\s|$)/i.exec(text);
+  let h = 9, min = 0, out = raw.trim();
+  if (m) {
+    let hh = Number(m[1] !== undefined ? m[1] : m[3]); const mm = Number(m[2] !== undefined ? m[2] : (m[4] || 0)), ap = (m[5] || '').toLowerCase();
+    if (ap === 'pm' && hh < 12) hh += 12; if (ap === 'am' && hh === 12) hh = 0;
+    if (hh <= 23 && mm <= 59) { h = hh; min = mm; out = (text.slice(0, m.index) + ' ' + text.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim() || raw.trim(); }
+  }
+  return { text: out, at: new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, min, 0, 0).getTime() };
+}
+async function calAdd() {
+  const day = cal.sel;
+  const v = await ask({ icon: 'bell', placeholder: 'Reminder for this day…  “18:30 gym”', hint: '↵' });
+  if (v === null || !v.trim()) return;
+  const r = parseOnDay(v, day);
+  if (r.at <= Date.now()) { flash('That time has passed'); return; }
+  setNotes(await window.qazi.noteSave(null, r.text, r.at));
+  flash('Reminder set'); emote('happy', 1200);
+}
+function renderCalendar() {
+  $('#stack-clear').classList.add('hidden');
+  const sh = cal.mode === 's', today = new Date(), tk = dayKey(today), sk = dayKey(cal.sel);
+  const byDay = new Map();
+  for (const n of st.notes) if (n.remind) { const k = dayKey(new Date(n.remind)); (byDay.get(k) || byDay.set(k, []).get(k)).push(n); }
+  const first = sh ? shFirst(cal.sy, cal.sm) : new Date(cal.gy, cal.gm, 1);
+  const start = new Date(first); start.setDate(start.getDate() - (sh ? (first.getDay() + 1) % 7 : (first.getDay() + 6) % 7));
+  const loc = fWeek.resolvedOptions().locale;
+
+  const card = document.createElement('div'); card.className = 'row calcard'; card.style.setProperty('--i', 0);
+  const hd = document.createElement('div'); hd.className = 'calhd';
+  const nav = (dir, icon, tip) => { const b = document.createElement('button'); b.className = 'nv'; b.title = tip; b.innerHTML = svg(icon); b.addEventListener('click', (e) => { e.stopPropagation(); calStep(dir); }); return b; };
+  const ttl = document.createElement('button'); ttl.className = 'ttl'; ttl.title = 'Today';
+  ttl.textContent = sh ? fShMonth.format(first) + ' ' + faNum.format(cal.sy) : new Intl.DateTimeFormat(loc, { month: 'long', year: 'numeric' }).format(first);
+  ttl.addEventListener('click', (e) => { e.stopPropagation(); const n = new Date(); cal.sel = new Date(n.getFullYear(), n.getMonth(), n.getDate()); calView(cal.sel); renderStack(); });
+  const seg = document.createElement('div'); seg.className = 'calseg';
+  for (const [m, label] of [['g', 'Greg.'], ['s', 'شمسی']]) {
+    const b = document.createElement('button'); b.textContent = label; b.className = cal.mode === m ? 'on' : '';
+    b.addEventListener('click', (e) => { e.stopPropagation(); if (cal.mode === m) return; cal.mode = m; calView(cal.sel); renderStack(); });
+    seg.appendChild(b);
+  }
+  hd.append(nav(-1, 'chevleft', 'Previous'), ttl, seg, nav(1, 'chevright', 'Next'));
+
+  const wk = document.createElement('div'); wk.className = 'calwk'; wk.dir = sh ? 'rtl' : 'ltr';
+  const fN = new Intl.DateTimeFormat(loc, { weekday: 'narrow' });
+  (sh ? SH_WEEK : [0, 1, 2, 3, 4, 5, 6].map((i) => fN.format(new Date(2024, 0, 1 + i)))).forEach((n) => { const e = document.createElement('span'); e.textContent = n; wk.appendChild(e); });
+  const gr = document.createElement('div'); gr.className = 'calgr'; gr.dir = sh ? 'rtl' : 'ltr';
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const p = shParts(d), out = sh ? p.m !== cal.sm : d.getMonth() !== cal.gm, k = dayKey(d);
+    const c = document.createElement('button');
+    c.className = 'cday' + (out ? ' out' : '') + (k === tk ? ' td' : '') + (k === sk ? ' sel' : '');
+    c.textContent = sh ? faNum.format(p.d) : String(d.getDate());
+    if (byDay.has(k)) c.appendChild(Object.assign(document.createElement('i'), { className: 'cdot' }));
+    c.addEventListener('click', (e) => { e.stopPropagation(); cal.sel = d; if (out) calView(d); renderStack(); });
+    gr.appendChild(c);
+  }
+  card.append(hd, wk, gr);
+  stackList.appendChild(card);
+
+  const add = document.createElement('div'); add.className = 'row caladd'; add.style.setProperty('--i', 1);
+  const lb = document.createElement('span'); lb.className = 'lb'; lb.dir = 'auto'; lb.textContent = calDayLabel(cal.sel);
+  const pl = document.createElement('span'); pl.className = 'pl'; pl.title = 'Add a reminder'; pl.innerHTML = svg('plus');
+  add.append(lb, pl);
+  add.addEventListener('click', calAdd);
+  stackList.appendChild(add);
+
+  const list = (byDay.get(sk) || []).slice().sort((a, b) => a.remind - b.remind);
+  if (list.length) {
+    const box = document.createElement('div'); box.className = 'calrems';
+    list.forEach((n, i) => {
+      const row = document.createElement('div'); row.className = 'row clip note' + (n.fired ? ' done' : ''); row.style.setProperty('--i', Math.min(i + 2, 6));
+      const chip = document.createElement('span'); chip.className = 'chip' + (n.fired ? ' off' : ''); const t = new Date(n.remind);
+      chip.innerHTML = svg('bell') + pad(t.getHours()) + ':' + pad(t.getMinutes());
+      const mbox = document.createElement('span'); mbox.className = 'mqbox'; mbox.dir = 'auto';
+      const mq = document.createElement('span'); mq.className = 'mq'; mq.textContent = n.text.replace(/\s+/g, ' '); mbox.appendChild(mq);
+      const x = document.createElement('button'); x.className = 'x'; x.title = 'Delete'; x.innerHTML = svg('close');
+      x.addEventListener('click', (e) => { e.stopPropagation(); window.qazi.noteRemove(n.id).then(setNotes); });
+      row.append(chip, mbox, x);
+      row.addEventListener('mouseenter', () => startMarquee(mbox)); row.addEventListener('mouseleave', () => stopMarquee(mbox));
+      box.appendChild(row);
+    });
+    stackList.appendChild(box);
+  }
+}
 
 // ------------------------------------------------------------ passwords
 // The vault lives encrypted on the Rust side; the page only ever sees names, never the stored passwords.
@@ -2500,6 +2679,7 @@ const SETTINGS_UI = [
   ['toggle', 'musicEnabled', 'Music player'],
   ['toggle', 'autoStart', 'Start with Windows'],
   ['toggle', 'autoUpdate', 'Update automatically'],
+  ['toggle', 'toolsFold', 'Fold extra tools behind an arrow'],
   ['seg', 'face', 'Resting pill shows', [['eyes', 'Eyes'], ['clock', 'Clock']]],
   ['seg', 'calendar', 'Date', [['gregorian', 'Greg.'], ['shamsi', 'Shamsi'], ['shamsi-fa', 'شمسی'], ['both', 'Both']]],
   ['toggle', 'autoHide', 'Hide while a window is underneath'],
@@ -2707,6 +2887,7 @@ const applySettings = (s) => {
     if (st.playerOpen) window.qazi.playerKill();
     if (st.stackOpen && st.stackKind === 'music') setStack(false);
   }
+  foldTools();
   st.gen.len = Number(s.vaultLength) || 18; st.gen.symbols = s.vaultSymbols !== false;
   if (st.stackOpen && st.stackKind === 'settings') { const y = stackList.scrollTop; renderStack(); stackList.scrollTop = y; }
   tick(); render();

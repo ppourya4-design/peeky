@@ -30,10 +30,12 @@ catches your notifications, remembers what you copied, holds your files, and bli
 - **Lyrics.** The player window has a Lyrics button: synced lyrics from [LRCLIB](https://lrclib.net) glide with the song, tap a line to jump there, ±10 s buttons, a per-song timing nudge, or load your own `.lrc` file. Only the title, artist and length of the playing song are sent, and only after you have opened Lyrics once.
 - **Notifications in one line.** Click to open that chat. While you are using the pill they wait beside it instead of taking it over.
 - **One hover away.** Screenshot, text grab, clipboard history, quick note, passwords, timer, notifications, settings.
+- **Calendar.** Click the date on the tray and a month opens under the pill, in Gregorian or Shamsi (one switch). Days with a reminder wear a dot; click a day to see its reminders, and the **+** to add one (`18:30 gym`, `at 6pm gym`). *Settings → Date* only changes how the date reads on the tray.
 - **Smart copy.** A copied link can be opened, a sum gets its answer, a date its twin in the other calendar (Gregorian ⇄ Shamsi), a colour its swatch.
 - **File shelf.** Drop files on the pill; up to five sit there side by side until you drag them out again.
 - **Timer.** Stays in sight while it runs, even over a fullscreen app.
 - **Settings inside the island.** No extra windows.
+- **Tools fold behind an arrow.** When the tool row grows past nine tools, the extra ones wait behind a small arrow before the gear and open as a second pill. *Settings → Fold extra tools behind an arrow* switches it off.
 - **Persian interface.** *Settings → Language* switches the whole interface (the pill and the player window) between English and فارسی. Anything not translated yet simply stays in English.
 - **Multiple screens.** *Settings → Screen* puts the island on the primary display or on any connected one; a full-screen film on another screen leaves it alone.
 
@@ -97,6 +99,7 @@ Windows today. A Linux version is being worked on; the backend talks to Windows 
 - **موزیک لوکال:** یک بار پوشهٔ موزیک را انتخاب کن؛ دکمهٔ موزیک در منو همهٔ آهنگ‌ها را فهرست می‌کند و با یک کلیک روی خود جزیره پخش می‌شود (کاور و نام از تگ فایل، شافل، قبلی و بعدی، نوار جلو و عقب). یک دکمهٔ کوچک بلندگو روی پلیر هست که نوار صدا را همان‌جا، داخل خود جزیره باز می‌کند.
 - **پنجرهٔ پلیر:** با یک کلیک یک پلیر کوچک جدا باز می‌شود: کاور بزرگ، نوار پخش، صدا، جستجو و فهرست کامل آهنگ‌ها. تا وقتی بازست، جزیره موزیک را نشان نمی‌دهد و با بستنش دوباره برمی‌گرداند.
 - **نوتیفیکیشن در یک خط:** با کلیک همان چت باز می‌شود. وقتی مشغول کار با جزیره‌ای، کنار آن منتظر می‌ماند.
+- **تقویم:** روی تاریخ کلیک کن؛ یک ماه زیر جزیره باز می‌شود، میلادی یا شمسی (با یک کلید). روزهایی که یادآور دارند نقطه دارند؛ روی یک روز کلیک کن تا یادآورهایش را ببینی و با **+** یکی اضافه کن («۱۸:۳۰ باشگاه»). «تنظیمات ← تاریخ» فقط شکل نمایش تاریخ روی جزیره را عوض می‌کند.
 - **کپی هوشمند:** لینکِ کپی‌شده باز می‌شود، حساب جواب می‌گیرد، تاریخ میلادی و شمسی به هم تبدیل می‌شوند.
 - **نگه‌داشتن فایل:** فایل را روی جزیره رها کن؛ کنار هم می‌مانند تا دوباره بیرونشان بکشی.
 - **یادداشت سریع:** `Ctrl+Alt+N` از هر جا. اگر در متن زمان باشد («۱۰ دقیقه دیگه چای») یادآور می‌شود.

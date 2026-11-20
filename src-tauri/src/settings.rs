@@ -11,7 +11,7 @@ use crate::sys;
 
 static SETTINGS: Mutex<Option<Map<String, Value>>> = Mutex::new(None);
 const THEMES: [&str; 9] = ["black", "ember", "venom", "sketch", "iris", "cloud", "water", "lava", "ice"];
-const BOOLS: [&str; 18] = ["autoUpdate", "musicReact", "netAlerts", "sensorDot", "smartCopy", "autoHide", "hideVideo", "copyPreview", "clipHistory", "deviceAlerts", "downloadAlerts", "shelf", "visuals", "noteHotkey", "vaultSymbols", "musicShuffle", "musicEnabled", "playerTheme"];
+const BOOLS: [&str; 19] = ["autoUpdate", "musicReact", "netAlerts", "sensorDot", "smartCopy", "autoHide", "hideVideo", "copyPreview", "clipHistory", "deviceAlerts", "downloadAlerts", "shelf", "visuals", "noteHotkey", "vaultSymbols", "musicShuffle", "musicEnabled", "playerTheme", "toolsFold"];
 const EYE_STYLES: [&str; 6] = ["round", "venom", "sleepy", "sad", "robot", "wide"];
 const CALENDARS: [&str; 4] = ["gregorian", "shamsi", "shamsi-fa", "both"];
 
@@ -27,6 +27,7 @@ fn defaults() -> Map<String, Value> {
         "musicShuffle": false,
         "musicRepeat": 0,           // local player repeat: 0 off, 1 all, 2 one
         "musicEnabled": true,       // the whole local music player can be switched off
+        "toolsFold": true,          // tools beyond the first nine fold behind an arrow (off: the row just grows)
         "playerTheme": true,        // the player window wears the pill's theme (off: plain, in the cover's colour)
         "vaultLength": 18, "vaultSymbols": true, "lastUser": "",
         "monitor": "primary",       // which display the island sits on: "primary" or a display's device name
