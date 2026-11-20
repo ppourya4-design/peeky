@@ -40,7 +40,7 @@ header { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 
 .seek.off { opacity: .35; pointer-events: none; }
 .times { width: 100%; display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; margin-top: -2px; }
 
-.ctl { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 14px; }
+.ctl { display: flex; align-items: center; justify-content: space-between; padding: 0 22px; margin-top: 14px; }   /* spread calmly across the seek bar's width, like his reference preview — nothing bunched in the middle */
 .ib { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: rgba(255, 255, 255, .85); transition: background .15s, transform .2s cubic-bezier(.3, 1.35, .45, 1), color .15s; }
 .ib svg { width: 19px; height: 19px; }
 .ib:hover { background: rgba(255, 255, 255, .14); color: #fff; }
@@ -93,7 +93,7 @@ header { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 
 .card.open .nowp { opacity: .18; transform: scale(.96); }
 
 /* the dock: Lyrics + List, bottom centre while the list is closed; it rides up with the sheet when it opens */
-.dock { position: absolute; z-index: 4; left: 0; right: 0; margin: 0 auto; width: max-content; top: calc(100% - 50px); display: flex; align-items: center; gap: 8px;
+.dock { position: absolute; z-index: 4; left: 0; right: 0; margin: 0 auto; width: max-content; top: calc(100% - 50px); display: flex; align-items: center; gap: 10px;
   transition: top .6s cubic-bezier(.22, 1, .36, 1); }
 .listbtn, .lyrbtn { position: relative; display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 12px 0 16px; border-radius: 15px;
   font-size: 12.5px; font-weight: 600; background: rgba(255, 255, 255, .09); color: #fff; opacity: .8;
