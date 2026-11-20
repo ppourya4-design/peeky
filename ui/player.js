@@ -292,19 +292,21 @@ async function trFetch() {
     const fa = await Lyr.translateFa(lyrLines(L.data));
     if (tok === L.tok && key === L.key) {
       if (fa.some((x) => x)) { L.fa = fa; Lyr.store.put(key + '#fa', fa); }
-      else { L.trFailAt = Date.now(); setTimeout(trPillPaint, 2600); }      // nothing came back: say so on the pill instead of staying silent
+      else { L.trFailAt = Date.now(); setTimeout(paintTr, 2600); }      // nothing came back: say so on the pill instead of staying silent
     }
-  } catch { if (tok === L.tok && key === L.key) { L.trFailAt = Date.now(); setTimeout(trPillPaint, 2600); } }
+  } catch { if (tok === L.tok && key === L.key) { L.trFailAt = Date.now(); setTimeout(paintTr, 2600); } }
   L.trBusy = false; paintTr(); lyrRender(); lyrScroll();
 }
+const GEAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>';
 function lyrPill() {
   paintTr();
   const s = L.state, p = lpill;
-  p.hidden = s === 'idle'; p.className = 'lpill';
-  p.innerHTML = s === 'search' ? '<i></i>Searching…' : s === 'synced' ? '<i></i>Synced' + (L.off ? ' · ' + offText(L.off) : '') : s === 'plain' ? 'Unsynced' : s === 'instr' ? 'Instrumental' : s === 'error' ? 'Offline' : s === 'none' ? 'No lyrics' : '';
-  if (s === 'search') p.classList.add('busy');
-  if (s === 'synced') p.classList.add('ok');
-  p.title = s === 'synced' ? 'Timing and word animation' : s === 'plain' ? 'Translation' : '';
+  const stat = s === 'search' ? 'Searching…' : s === 'synced' ? 'Synced' + (L.off ? ' · ' + offText(L.off) : '') : s === 'plain' ? 'Unsynced' : s === 'instr' ? 'Instrumental' : s === 'error' ? 'Offline' : s === 'none' ? 'No lyrics' : '';
+  p.hidden = s === 'idle';
+  p.className = 'lpill' + (s === 'search' ? ' busy' : '') + (s === 'synced' ? ' ok' : '') + (s === 'synced' || s === 'plain' ? ' can' : '') + (tmEl.hidden ? '' : ' on');
+  p.innerHTML = GEAR + (s === 'synced' ? '<span class="dot"></span>' : '');
+  p.title = stat;
+  const ts = $('#tmstat'); if (ts) ts.textContent = stat;
   if (s !== 'synced' && s !== 'plain') tmEl.hidden = true;
   $('#lyrbtn').classList.toggle('has', s === 'synced' || s === 'plain');
 }

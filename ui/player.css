@@ -150,32 +150,33 @@ body.sketch .card, body.iris .card { box-shadow: none; }
 .card.lyr-on .times { grid-area: 4 / 1 / 5 / 4; }
 .card.lyr-on .ctl { grid-area: 5 / 1 / 6 / 4; justify-self: center; margin-top: 8px; }
 
-.lpill { align-items: center; gap: 7px; height: 28px; padding: 0 12px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .28); font-size: 12.5px; font-weight: 500; color: rgba(255, 255, 255, .9); white-space: nowrap; cursor: default; transition: background .2s, border-color .3s, color .3s; }
+.lpill { position: relative; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .16); background: rgba(255, 255, 255, .07); color: rgba(255, 255, 255, .85); cursor: default; transition: background .2s, border-color .3s, color .3s; }
 .lpill[hidden] { display: none !important; }
-.lpill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
-.lpill.ok { color: #8dffb0; border-color: rgba(141, 255, 176, .45); cursor: pointer; }
-.lpill.ok:hover, .lpill.ok.on { background: rgba(141, 255, 176, .12); }
-.lpill.busy i { background: none; border: 2px solid rgba(255, 255, 255, .3); border-top-color: #fff; width: 11px; height: 11px; animation: lspin .8s linear infinite; }
+.lpill svg { width: 16px; height: 16px; display: block; }
+.lpill .dot { position: absolute; top: -1px; inset-inline-end: -1px; width: 8px; height: 8px; border-radius: 50%; background: #8dffb0; box-shadow: 0 0 0 2px rgba(10, 10, 14, .85); }
+.lpill.ok, .lpill.can { cursor: pointer; }
+.lpill:hover, .lpill.on { background: rgba(255, 255, 255, .16); }
+.lpill.busy svg { animation: lspin 1.4s linear infinite; }
 @font-face { font-family: 'Vazirmatn'; src: url('fonts/Vazirmatn-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF, U+200C-200D; }
 @font-face { font-family: 'Vazirmatn'; src: url('fonts/Vazirmatn-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF, U+200C-200D; }
 @keyframes lspin { to { transform: rotate(360deg); } }
 
-.lyrics { position: relative; overflow: hidden; margin: 8px -22px 0; align-self: stretch; -webkit-mask-image: linear-gradient(transparent 0, #000 16%, #000 84%, transparent 100%); mask-image: linear-gradient(transparent 0, #000 16%, #000 84%, transparent 100%); }
+.lyrics { position: relative; overflow: hidden; margin: 8px -22px 0; align-self: stretch; -webkit-mask-image: linear-gradient(transparent 0, #000 10%, #000 90%, transparent 100%); mask-image: linear-gradient(transparent 0, #000 10%, #000 90%, transparent 100%); }
 .lines { position: absolute; left: 22px; right: 22px; top: 0; transition: transform .6s cubic-bezier(.22, 1, .36, 1); will-change: transform; }
 .lyrics.plain { overflow-y: auto; scrollbar-width: none; }
 .lyrics.plain .lines { position: static; padding: 20px 0; }
-.ln { display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; align-items: center; gap: 2px 10px; margin: 2px -10px; padding: 6px 10px; border-radius: 14px; cursor: pointer; font-size: 19px; line-height: 1.35; font-weight: 700; color: rgba(255, 255, 255, .42);
-  filter: blur(calc(var(--d, 4) * .55px)); opacity: calc(1 - var(--d, 4) * .13); transition: color .35s, filter .45s, opacity .45s, background .2s; }
-.ln .tr { grid-column: 2; direction: rtl; text-align: center; font-family: 'Vazirmatn', 'Segoe UI', sans-serif; font-size: 13px; font-weight: 500; line-height: 1.6; color: rgba(255, 255, 255, .48); overflow-wrap: anywhere; }
-.ln.cur .tr { color: rgba(255, 255, 255, .85); font-weight: 700; }
-.lyrics.plain .ln .tr { font-size: 12.5px; }
-.ln .x { grid-column: 2; min-width: 0; text-align: center; overflow-wrap: anywhere; }
-.ln .tm { grid-column: 1; justify-self: start; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 9px; background: rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .85); opacity: 0; transition: opacity .15s; font-variant-numeric: tabular-nums; }
+.ln { position: relative; margin: 5px -8px; padding: 9px 18px; border-radius: 16px; cursor: pointer; font-size: 17px; line-height: 1.45; font-weight: 650; color: rgba(255, 255, 255, .42);
+  filter: blur(calc(var(--d, 4) * .4px)); opacity: calc(1 - var(--d, 4) * .10); transition: color .35s, filter .45s, opacity .45s, background .2s; }
+.ln .tr { direction: rtl; text-align: center; font-family: 'Vazirmatn', 'Segoe UI', sans-serif; font-size: 13.5px; font-weight: 500; line-height: 1.75; color: rgba(255, 255, 255, .55); margin-top: 4px; overflow-wrap: anywhere; }
+.ln.cur .tr { color: rgba(255, 255, 255, .88); font-weight: 700; }
+.lyrics.plain .ln .tr { font-size: 13px; }
+.ln .x { display: block; text-align: center; text-wrap: balance; overflow-wrap: anywhere; }
+.ln .tm { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 9px; background: rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .85); opacity: 0; transition: opacity .15s; font-variant-numeric: tabular-nums; }
 .ln:hover { background: rgba(255, 255, 255, .09); filter: none; opacity: 1; }
 .ln:hover .tm { opacity: 1; }
 .ln.cur { color: #fff; filter: none; opacity: 1; }
 .ln.gap .x { opacity: .5; }
-.lyrics.plain .ln { cursor: default; filter: none; opacity: .85; color: #fff; font-weight: 600; font-size: 16px; }
+.lyrics.plain .ln { cursor: default; filter: none; opacity: .85; color: #fff; font-weight: 600; font-size: 15.5px; }
 .lyrics.plain .ln:hover { background: none; }
 .lyrics.plain .ln:hover .tm { opacity: 0; }
 
