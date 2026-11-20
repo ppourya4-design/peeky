@@ -107,6 +107,16 @@ async function gtx(q) {
   } finally { clearTimeout(timer); }
 }
 async function translateFa(lines) {
+  // the app's own backend does the asking (the endpoints send no CORS headers,
+  // so a page fetch can never read their answers); the direct fetch below is
+  // only a fallback for contexts without the backend
+  const inv = window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke;
+  if (inv) {
+    try {
+      const r = await inv('translate_fa', { lines });
+      if (Array.isArray(r) && r.length === lines.length) return r.map((x) => String(x || '').trim());
+    } catch { /* fall through to the direct fetch */ }
+  }
   // one request for the whole song (newlines keep the lines apart); any line the
   // bulk answer misses or misaligns is then asked for on its own, in small batches
   let out = [];

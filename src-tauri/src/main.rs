@@ -15,6 +15,7 @@ mod shelf;
 mod speedo;
 mod store;
 mod sys;
+mod translate;
 mod update;
 
 use std::io::Write;
@@ -219,6 +220,10 @@ fn open_url(url: String) {
 #[tauri::command(async)]
 fn update_check() -> String {
     update::check()
+}
+#[tauri::command]
+async fn translate_fa(lines: Vec<String>) -> Vec<String> {
+    translate::run(lines).await
 }
 #[tauri::command]
 fn update_install() -> bool {
@@ -484,7 +489,7 @@ fn main() {
             set_interactive, set_typing, lost_click, media, seek, set_volume, toggle_mute, set_viz, notif_act, notif_dismiss, notif_clear,
             clips_get, clip_copy, clip_pin, clip_remove, clips_clear, copy_text,
             shelf_get, shelf_add, shelf_add_data, shelf_add_url, shelf_remove, shelf_clear, shelf_reveal, shelf_drag, open_download,
-            settings_get, settings_set, monitors_get, action, open_url, ocr_done, speedo_cmd, update_check, update_install,
+            settings_get, settings_set, monitors_get, action, open_url, ocr_done, speedo_cmd, update_check, update_install, translate_fa,
             notes_get, note_save, note_pin, note_fired, note_remove,
             vault_list, vault_generate, vault_save, vault_copy, copy_secret, vault_reveal, vault_remove, music_pick, music_scan, music_read, music_head, player_open, player_kill, player_drag, player_min, player_close, debug_out
         ])

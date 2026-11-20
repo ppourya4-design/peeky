@@ -261,7 +261,7 @@ document.addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target
 
 // ---------------------------------------------------------------- lyrics (LRCLIB)
 // The Lyrics button turns the player into a lyrics view: small cover and title on top, the lyrics gliding with the song, ±10s buttons.
-var L = { on: false, key: '', tok: 0, state: 'idle', data: null, off: 0, active: -2, els: [], ws: [], wt: [], manual: 0, manualAt: 0, timer: 0, tr: false, fa: null, en: false, trBusy: false };
+var L = { on: false, key: '', tok: 0, state: 'idle', data: null, off: 0, active: -2, els: [], ws: [], wt: [], manual: 0, manualAt: 0, timer: 0, tr: false, fa: null, en: false, trBusy: false, trFailAt: 0 };
 try { L.tr = localStorage.getItem('poyzen.lyr.tr') === '1'; } catch { /* not remembered */ }
 // how the sung word shows: 'line' = the whole line lights up, 'fill' = every word fills as it is sung, 'pop' = the word lifts and lights up
 let WM = 'fill'; try { const m = localStorage.getItem('poyzen.lyr.wm'); if (m === 'line' || m === 'fill' || m === 'pop') WM = m; } catch { /* default */ }
@@ -277,7 +277,7 @@ function trPillPaint() {
   trpill.hidden = !((s === 'synced' || s === 'plain') && L.en);
   trpill.classList.toggle('on', L.tr);
   trpill.classList.toggle('busy', L.trBusy);
-  trpill.querySelector('span').textContent = L.trBusy ? 'Translating…' : 'Translate';
+  trpill.querySelector('span').textContent = L.trBusy ? 'Translating…' : (Date.now() - L.trFailAt < 2500 ? 'Offline' : 'Translate');
 }
 async function trFetch() {
   if (!L.en || L.fa || L.trBusy || !L.data) return;
@@ -286,8 +286,11 @@ async function trFetch() {
   L.trBusy = true; trPillPaint();
   try {
     const fa = await Lyr.translateFa(lyrLines(L.data));
-    if (tok === L.tok && key === L.key && fa.some((x) => x)) { L.fa = fa; Lyr.store.put(key + '#fa', fa); }
-  } catch { /* offline: the lyrics just stay untranslated */ }
+    if (tok === L.tok && key === L.key) {
+      if (fa.some((x) => x)) { L.fa = fa; Lyr.store.put(key + '#fa', fa); }
+      else { L.trFailAt = Date.now(); setTimeout(trPillPaint, 2600); }      // nothing came back: say so on the pill instead of staying silent
+    }
+  } catch { if (tok === L.tok && key === L.key) { L.trFailAt = Date.now(); setTimeout(trPillPaint, 2600); } }
   L.trBusy = false; trPillPaint(); lyrRender(); lyrScroll();
 }
 trpill.addEventListener('click', () => {
