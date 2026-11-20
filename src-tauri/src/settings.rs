@@ -7,11 +7,15 @@ use windows::core::HSTRING;
 use windows::Win32::Foundation::ERROR_SUCCESS;
 use windows::Win32::System::Registry::*;
 
+use windows::Win32::UI::Input::KeyboardAndMouse::{MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN};
+
 use crate::sys;
 
 static SETTINGS: Mutex<Option<Map<String, Value>>> = Mutex::new(None);
 const THEMES: [&str; 9] = ["black", "ember", "venom", "sketch", "iris", "cloud", "water", "lava", "ice"];
 const BOOLS: [&str; 19] = ["autoUpdate", "musicReact", "netAlerts", "sensorDot", "smartCopy", "autoHide", "hideVideo", "copyPreview", "clipHistory", "deviceAlerts", "downloadAlerts", "shelf", "visuals", "noteHotkey", "vaultSymbols", "musicShuffle", "musicEnabled", "playerTheme", "toolsFold"];
+/// Tool buttons that can be switched off (the gear can not: it is the way back; the track button and the file shelf come and go by themselves).
+const HIDEABLE_TOOLS: [&str; 10] = ["play", "screenshot", "ocr", "clips", "music", "notes", "vault", "speedo", "timer", "inbox"];
 const EYE_STYLES: [&str; 6] = ["round", "venom", "sleepy", "sad", "robot", "wide"];
 const CALENDARS: [&str; 4] = ["gregorian", "shamsi", "shamsi-fa", "both"];
 
@@ -22,11 +26,14 @@ fn defaults() -> Map<String, Value> {
         "notifSeconds": 4,          // how long a notification stays on the pill
         "face": "eyes",             // what the resting pill shows: "eyes" or "clock"
         "eyeStyle": "round",        // the shape of the eyes (any theme can wear any of them)
-        "noteHotkey": true,         // Ctrl+Alt+N opens the quick note from anywhere
+        "noteHotkey": true,         // the global shortcuts (quick note, text grab) are on
+        "keyNote": "Ctrl+Alt+N",    // the quick-note shortcut (can be changed in Settings)
+        "keyOcr": "Ctrl+Alt+T",     // the text-grab shortcut
         "musicFolder": "",          // the folder the local player reads
         "musicShuffle": false,
         "musicRepeat": 0,           // local player repeat: 0 off, 1 all, 2 one
         "musicEnabled": true,       // the whole local music player can be switched off
+        "toolsOff": [],             // tool buttons switched off in Settings -> Tools (hidden from the pill)
         "toolsFold": true,          // tools beyond the first nine fold behind an arrow (off: the row just grows)
         "playerTheme": true,        // the player window wears the pill's theme (off: plain, in the cover's colour)
         "vaultLength": 18, "vaultSymbols": true, "lastUser": "",
@@ -83,8 +90,59 @@ pub fn put(key: &str, value: Value) {
 pub fn ui_scale() -> f64 {
     get("uiScale").as_f64().filter(|n| n.is_finite() && (0.6..=2.0).contains(n)).unwrap_or(1.0)
 }
+/// A shortcut written as "Ctrl+Alt+N": at least one of Ctrl / Alt / Win (plus Shift if wanted) and one key (A-Z, 0-9, F1-F12).
+/// Returns the tidy spelling, the modifier bits and the virtual-key code. Anything else is refused.
+pub fn parse_combo(text: &str) -> Option<(String, u32, u32)> {
+    let (mut ctrl, mut alt, mut shift, mut win) = (false, false, false, false);
+    let mut key: Option<(String, u32)> = None;
+    for part in text.split('+').map(|p| p.trim()) {
+        match part.to_ascii_lowercase().as_str() {
+            "ctrl" | "control" => ctrl = true,
+            "alt" => alt = true,
+            "shift" => shift = true,
+            "win" | "meta" | "super" | "windows" => win = true,
+            p if key.is_none() => {
+                let up = p.to_ascii_uppercase();
+                let b = up.as_bytes();
+                if b.len() == 1 && (b[0].is_ascii_uppercase() || b[0].is_ascii_digit()) {
+                    key = Some((up.clone(), b[0] as u32));
+                } else if b.len() >= 2 && b[0] == b'F' {
+                    let n: u32 = up[1..].parse().ok()?;
+                    if !(1..=12).contains(&n) {
+                        return None;
+                    }
+                    key = Some((up.clone(), 0x70 + n - 1));
+                } else {
+                    return None;
+                }
+            }
+            _ => return None,
+        }
+    }
+    let (name, vk) = key?;
+    if !(ctrl || alt || win) {
+        return None;            // a bare letter (or Shift+letter) would steal normal typing everywhere
+    }
+    let mut label = String::new();
+    let mut bits = 0u32;
+    for (on, word, flag) in [(ctrl, "Ctrl", MOD_CONTROL.0), (alt, "Alt", MOD_ALT.0), (shift, "Shift", MOD_SHIFT.0), (win, "Win", MOD_WIN.0)] {
+        if on {
+            label.push_str(word);
+            label.push('+');
+            bits |= flag;
+        }
+    }
+    label.push_str(&name);
+    Some((label, bits, vk))
+}
+/// The shortcut saved under `key`, or the default when the saved text is not a valid shortcut.
+pub fn combo(key: &str, default: &str) -> (String, u32, u32) {
+    get(key).as_str().and_then(parse_combo).or_else(|| parse_combo(default)).unwrap_or_default()
+}
 pub fn payload() -> Value {
     let mut map = with(|m| m.clone());
+    map.insert("keyNoteFail".into(), crate::hit::NOTE_KEY_FAIL.load(std::sync::atomic::Ordering::SeqCst).into());
+    map.insert("keyOcrFail".into(), crate::hit::OCR_KEY_FAIL.load(std::sync::atomic::Ordering::SeqCst).into());
     map.insert("autoStartOn".into(), autostart_on().into());
     map.insert("version".into(), env!("CARGO_PKG_VERSION").into());
     map.insert("appName".into(), sys::APP_NAME.into());
@@ -135,12 +193,29 @@ pub fn apply(key: &str, value: &Value) {
                 put(key, v.into());
             }
         }
+        "keyNote" | "keyOcr" => {
+            // a new shortcut: must be a valid combination and must not be the other shortcut's
+            let other = if key == "keyNote" { combo("keyOcr", "Ctrl+Alt+T") } else { combo("keyNote", "Ctrl+Alt+N") };
+            if let Some((label, bits, vk)) = value.as_str().and_then(parse_combo) {
+                if (bits, vk) != (other.1, other.2) {
+                    put(key, label.into());
+                }
+            }
+        }
         "toolOrder" => {
             // the pill's tool row, arranged by its owner (long-press a tool, drag it into place)
             const TOOLS: [&str; 13] = ["track", "play", "screenshot", "ocr", "clips", "music", "notes", "vault", "speedo", "timer", "shelf", "inbox", "settings"];
             if let Some(arr) = value.as_array() {
                 let mut seen = std::collections::HashSet::new();
                 let list: Vec<Value> = arr.iter().filter_map(|v| v.as_str()).filter(|k| TOOLS.contains(k) && seen.insert(*k)).map(|k| Value::from(k)).collect();
+                put(key, Value::Array(list));
+            }
+        }
+        "toolsOff" => {
+            // the tool buttons the owner switched off in Settings -> Tools: they simply do not show on the pill
+            if let Some(arr) = value.as_array() {
+                let mut seen = std::collections::HashSet::new();
+                let list: Vec<Value> = arr.iter().filter_map(|v| v.as_str()).filter(|k| HIDEABLE_TOOLS.contains(k) && seen.insert(*k)).map(Value::from).collect();
                 put(key, Value::Array(list));
             }
         }

@@ -82,6 +82,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .ib.small { width: 20px; height: 20px; color: var(--dim); }
 .ib.small svg { width: 13px; height: 13px; }
 .ib.hidden { display: none; }
+.ib.off { display: none !important; }   /* switched off in Settings -> Tools */
 .ib.active { background: #fff; color: #000; }
 .badge { position: absolute; top: 0; right: -1px; min-width: 13px; height: 13px; padding: 0 3px; border-radius: 7px; background: #ff3b5c; color: #fff; font-size: 8.5px; font-weight: 700; line-height: 13px; text-align: center; display: none; }
 .badge.on { display: block; }
@@ -649,3 +650,36 @@ body.sketch .cday:hover, body.sketch .cday.sel { background: rgba(28, 34, 54, .1
 body.sketch .cday.out, body.sketch .calwk span { color: var(--dim); }
 body.sketch .calhd .nv, body.sketch .caladd .lb { color: var(--ink); }
 body.sketch .caladd .pl { background: rgba(28, 34, 54, .12); color: var(--ink); }
+
+
+/* ================================================================================================================
+   Settings in tabs, and the tool tiles
+   ================================================================================================================ */
+.row.set.tabs { position: sticky; top: 0; z-index: 3; padding: 0 5px; gap: 2px; justify-content: stretch; }
+.row.set.tabs button { flex: 1; height: 24px; border-radius: 12px; font-size: 11.5px; color: rgba(255, 255, 255, .62); transition: background .15s, color .15s; }
+.row.set.tabs button:hover { color: #fff; }
+.row.set.tabs button.on { background: #fff; color: #000; font-weight: 600; }
+.row.set.info.head { justify-content: flex-start; height: 20px; padding: 0 14px; margin-top: 2px; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; }
+body.fa .row.set.info.head { text-transform: none; letter-spacing: 0; direction: rtl; }
+.row.moretools.settiles { gap: 3px 2px; }
+.stile { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); opacity: .42; }
+.stile:hover { opacity: .8; }
+.stile.show { opacity: 1; box-shadow: inset 0 0 0 1.5px #a98bff; background: rgba(148, 102, 255, .14); }
+body.fa #stack-list .row.set.tabs { direction: rtl; }
+body.sketch .row.set.tabs button { color: rgba(28, 34, 54, .7); }
+body.sketch .row.set.tabs button.on { background: var(--ink); color: var(--paper); }
+body.sketch .stile { color: var(--ink); background: none; }
+body.sketch .stile.show { box-shadow: inset 0 0 0 2px var(--ink); background: rgba(28, 34, 54, .08); }
+body.iris .row.set.tabs button.on { background: #fff; color: #000; }
+.stile { width: 70px; }
+
+/* shortcut buttons in Settings */
+.row.set .keycap { height: 22px; padding: 0 10px; border-radius: 11px; background: rgba(255, 255, 255, .12); font-size: 11px; letter-spacing: .02em; white-space: nowrap; transition: background .15s, color .15s; }
+.row.set .keycap:hover { background: rgba(255, 255, 255, .24); }
+.row.set .keycap.rec { background: #a98bff; color: #000; font-weight: 600; }
+.row.set .keycap.bad { background: rgba(255, 59, 92, .18); color: #ff8b9e; }
+body.fa #stack-list .row.set .keycap { direction: ltr; }
+body.sketch .row.set .keycap { background: rgba(28, 34, 54, .12); color: var(--ink); font-weight: 700; }
+body.sketch .row.set .keycap.rec { background: var(--ink); color: var(--paper); }
+body.iris .row.set .keycap { background: #1e1e28; }
+#stack-list.has-tabs { padding-top: 0; }

@@ -68,6 +68,19 @@
     <div class="th wh"><b>Translation</b><span id="trstat">all songs</span></div>
     <div class="seg" id="trseg"><button data-t="off">Off</button><button data-t="fa">Persian</button></div>
   </div>
+  <div class="share" id="share" hidden>
+    <div class="sh-head"><b>Share a lyric</b><button class="wb" id="sh-x" title="Close"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
+    <div class="sh-view"><canvas id="sh-cv"></canvas></div>
+    <div class="sh-pick">
+      <button id="sh-prev" title="Previous line">‹</button>
+      <button id="sh-less" title="Fewer lines">−</button><output id="sh-n">1 line</output><button id="sh-more" title="More lines">+</button>
+      <button id="sh-next" title="Next line">›</button>
+      <button id="sh-tr" class="tog" hidden title="Add the Persian translation">فا</button>
+    </div>
+    <div class="sh-seg" id="sh-fmt"><button data-f="story" title="9:16, for a story">Story</button><button data-f="square" title="1:1, for a chat or a post">Square</button></div>
+    <div class="sh-seg" id="sh-sty"><button data-s="cover">Cover</button><button data-s="color">Colour</button><button data-s="light">Light</button><button data-s="black">Black</button></div>
+    <div class="sh-acts"><button id="sh-copy">Copy</button><button id="sh-save" class="solid">Save PNG</button></div>
+  </div>
   <input type="file" id="lrcfile" accept=".lrc,.txt,text/plain" hidden>
 </div>
 <script src="migrate-keys.js"></script>
@@ -75,6 +88,7 @@
 <script src="lyrics.js"></script>
 <script src="player-look.js"></script>
 <script src="player.js"></script>
+<script src="player-share.js"></script>
 <script src="player-aurora.js"></script>
 </body>
 </html>

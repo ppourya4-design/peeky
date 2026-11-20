@@ -68,7 +68,7 @@ listen('player-state', (e) => {
   if (m.t === 'list') { tracks = m.tracks || []; folder = m.folder || ''; applyFilter(); paintFolder(); }
   else if (m.t === 'cover') {
     if (m.id === coverId) return;
-    coverId = m.id;
+    coverId = m.id; window.__coverData = m.data || '';
     const url = m.data ? `url(data:image/png;base64,${m.data})` : '';
     $('#cover').style.backgroundImage = url; $('#cover').firstElementChild.style.display = m.data ? 'none' : '';
     $('#bg').style.backgroundImage = url; $('#bg').classList.toggle('none', !m.data);
@@ -352,6 +352,7 @@ function setRowWords(i, full) {
   const ws = L.ws[i]; if (!ws) return;
   for (const w of ws) { w.f.style.width = full ? '100%' : '0'; w.el.classList.remove('on'); }
 }
+const SHARE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="4"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4.5 3.5 3 3-2.500L20 17"/></svg>';
 function lyrRender() {
   const s = L.state;
   lyEl.className = 'lyrics' + (s === 'plain' ? ' plain' : '') + (s === 'synced' || s === 'plain' ? '' : ' msg') + (s === 'synced' && WM !== 'line' ? ' wm' : '');
@@ -365,6 +366,7 @@ function lyrRender() {
       const x = document.createElement('span'); x.className = 'x'; x.dir = 'auto';
       if (s === 'synced' && WM !== 'line' && text) buildWords(x, rows, i); else x.textContent = text || '♪';
       if (t >= 0) row.append(tm, x); else row.append(x);
+      if (text) { const sb = document.createElement('button'); sb.className = 'shr'; sb.title = 'Share this line as a picture'; sb.innerHTML = SHARE_ICON; row.appendChild(sb); if (t >= 0) row.classList.add('has-tm'); }
       if (L.tr && L.fa && L.fa[i]) { const tr = document.createElement('div'); tr.className = 'tr'; tr.textContent = L.fa[i]; row.appendChild(tr); }
       row.style.setProperty('--d', 4);
       frag.appendChild(row); L.els.push(row);
@@ -449,6 +451,8 @@ lyEl.addEventListener('wheel', (e) => {            // look around while the song
   L.manual = clamp(L.manual - e.deltaY, -lnEl.offsetHeight, lnEl.offsetHeight); L.manualAt = performance.now(); lyrScroll();
 }, { passive: false });
 lnEl.addEventListener('click', (e) => {            // a tap on a line jumps there
+  const sb = e.target.closest('.shr');                // ... except the little picture button: that one makes a share card
+  if (sb) { e.stopPropagation(); if (window.LyricShare) window.LyricShare.open(Number(sb.closest('.ln').dataset.i)); return; }
   const row = e.target.closest('.ln'); if (!row || L.state !== 'synced') return;
   const ms = clamp(L.data.synced[Number(row.dataset.i)][0] + L.off, 0, S.dur || 1e9);
   S.pos = ms; at = performance.now(); cmd('seek', { ms }); L.manual = 0;
@@ -515,4 +519,5 @@ function setLyrics(on) {
 }
 $('#lyrbtn').addEventListener('click', () => setLyrics(!L.on));
 setLyr('idle');
+window.PlayerData = { S: () => S, L: () => L };      // read-only doors for player-share.js
 })();

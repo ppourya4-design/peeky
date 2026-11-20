@@ -271,3 +271,34 @@ body.sketch .card, body.iris .card { box-shadow: none; }
 
 /* ---- Persian interface */
 body.fa { font-family: 'Vazirmatn', "Segoe UI Variable Text", "Segoe UI", Tahoma, system-ui, sans-serif; }
+
+/* ---- lyric share card */
+.ln .shr { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 30px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .9); opacity: 0; transition: opacity .15s, background .15s; }
+.ln.has-tm .shr { right: 62px; }
+.ln .shr svg { width: 16px; height: 16px; }
+.ln:hover .shr { opacity: 1; }
+.ln .shr:hover { background: #fff; color: #000; }
+.share { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px 18px; background: rgba(6, 6, 9, .94); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); overflow-y: auto; scrollbar-width: none; }
+.share[hidden] { display: none; }
+.sh-head { display: flex; align-items: center; justify-content: space-between; font-size: 15px; }
+.sh-view { position: relative; flex: 1 1 0; min-height: 170px; }
+#sh-cv { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 10px 24px rgba(0, 0, 0, .55)); }
+.share > :not(.sh-view) { flex: none; }
+.sh-pick { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.sh-pick button, .sh-acts button { height: 34px; min-width: 38px; padding: 0 12px; border-radius: 12px; background: rgba(255, 255, 255, .1); font-size: 15px; font-weight: 600; transition: background .15s, transform .15s, opacity .15s; }
+.sh-pick button:hover:not(:disabled), .sh-acts button:hover { background: rgba(255, 255, 255, .2); }
+.sh-pick button:active, .sh-acts button:active { transform: scale(.95); }
+.sh-pick button:disabled { opacity: .3; cursor: default; }
+.sh-pick output { min-width: 62px; text-align: center; font-size: 12.5px; color: var(--dim, rgba(255, 255, 255, .55)); }
+.sh-pick .tog { font-size: 13px; margin-inline-start: 6px; }
+.sh-pick .tog[hidden] { display: none; }
+.sh-pick .tog.on { background: #fff; color: #000; }
+.sh-seg { display: flex; gap: 4px; padding: 3px; border-radius: 14px; background: rgba(255, 255, 255, .08); }
+.sh-seg button { flex: 1; height: 32px; border-radius: 11px; font-size: 12.5px; font-weight: 600; color: rgba(255, 255, 255, .7); transition: background .15s, color .15s; }
+.sh-seg button:hover { background: rgba(255, 255, 255, .1); }
+.sh-seg button.on { background: #fff; color: #000; }
+.sh-acts { display: flex; gap: 8px; }
+.sh-acts button { flex: 1; height: 40px; font-size: 14px; }
+.sh-acts .solid { background: #fff; color: #000; }
+.sh-acts .solid:hover { background: #e8e8ee; }
+body.fa .sh-pick, body.fa .sh-seg, body.fa .sh-acts { direction: ltr; }

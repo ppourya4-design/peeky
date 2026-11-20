@@ -242,29 +242,43 @@ pub fn start() {
     });
 }
 
-/// The quick-note shortcut (Ctrl+Alt+N). Registered on its own thread, switched with the setting.
+/// The two global shortcuts: quick note and text grab (Ctrl+Alt+N / Ctrl+Alt+T unless changed in Settings).
+/// Registered on their own thread, switched with the setting, and re-registered when a shortcut is changed.
+/// A shortcut another program already owns is reported to the page (NOTE_KEY_FAIL / OCR_KEY_FAIL), not silently lost.
 pub static HOTKEY_WANTED: AtomicBool = AtomicBool::new(true);
+pub static NOTE_KEY_FAIL: AtomicBool = AtomicBool::new(false);
+pub static OCR_KEY_FAIL: AtomicBool = AtomicBool::new(false);
 pub fn start_hotkey() {
     std::thread::spawn(|| unsafe {
-        let mut have = false;
-        let mut failed = false;
+        // what is registered right now: (label, modifier bits, key) per id, None = nothing
+        let mut have: [Option<(String, u32, u32)>; 2] = [None, None];
         loop {
             let want = HOTKEY_WANTED.load(SeqCst);
-            if want && !have && !failed {
-                have = RegisterHotKey(None, 1, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'N' as u32).is_ok();
-                if !have {
-                    failed = true;
-                    sys::log("Ctrl+Alt+N is taken by another program: quick-note shortcut is off");
-                } else if RegisterHotKey(None, 2, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'T' as u32).is_err() {
-                    sys::log("Ctrl+Alt+T is taken by another program: text-grab shortcut is off");
+            let mut changed = false;
+            for (slot, id, key, default, fail, name) in [(0usize, 1i32, "keyNote", "Ctrl+Alt+N", &NOTE_KEY_FAIL, "quick-note"), (1, 2, "keyOcr", "Ctrl+Alt+T", &OCR_KEY_FAIL, "text-grab")] {
+                let wanted = if want { Some(crate::settings::combo(key, default)) } else { None };
+                if wanted == have[slot] {
+                    continue;
                 }
-            } else if !want && have {
-                let _ = UnregisterHotKey(None, 1);
-                let _ = UnregisterHotKey(None, 2);
-                have = false;
+                if have[slot].is_some() {
+                    let _ = UnregisterHotKey(None, id);
+                }
+                let ok = match &wanted {
+                    Some((label, bits, vk)) => {
+                        let ok = RegisterHotKey(None, id, HOT_KEY_MODIFIERS(*bits) | MOD_NOREPEAT, *vk).is_ok();
+                        if !ok {
+                            sys::log(&format!("{label} is taken by another program: {name} shortcut is off"));
+                        }
+                        ok
+                    }
+                    None => true,
+                };
+                fail.store(!ok, SeqCst);
+                have[slot] = wanted;
+                changed = true;
             }
-            if !want {
-                failed = false;
+            if changed {
+                crate::settings::broadcast();
             }
             let mut msg = MSG::default();
             while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {

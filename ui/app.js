@@ -452,7 +452,7 @@ window.qazi.onClips(setClips);
 window.qazi.clipsGet().then(setClips);
 
 function renderStack() {
-  stackList.textContent = '';
+  stackList.textContent = ''; stackList.classList.remove('has-tabs');
   if (st.stackKind === 'files') { renderFiles(); return; }
   if (st.stackKind === 'clips') { renderClips(); return; }
   if (st.stackKind === 'notes') { renderNotes(); return; }
@@ -2042,7 +2042,7 @@ function foldTools() {
   for (const b of toolView.querySelectorAll('.ib')) {
     if (b === moreBtn || b === gear) continue;
     let over = false;
-    if (fold && !b.classList.contains('hidden') && !FOLD_NEVER.has(toolKey(b))) over = ++n > FOLD_AFTER;
+    if (fold && !b.classList.contains('hidden') && !b.classList.contains('off') && !FOLD_NEVER.has(toolKey(b))) over = ++n > FOLD_AFTER;
     b.classList.toggle('ovf', over);
     any = any || over;
   }
@@ -2068,6 +2068,15 @@ function renderMore() {
     row.appendChild(t);
   });
   stackList.appendChild(row);
+}
+// the buttons switched off in Settings -> Tools simply do not show (the gear and the fold arrow always do)
+function applyToolsOff(list) {
+  const off = new Set(Array.isArray(list) ? list : []);
+  for (const b of toolView.querySelectorAll('.ib')) {
+    const k = toolKey(b);
+    if (k === 'settings' || k === 'more') continue;
+    b.classList.toggle('off', off.has(k));
+  }
 }
 function applyToolOrder(order) {
   if (!Array.isArray(order) || !order.length) return;
@@ -2142,7 +2151,7 @@ toolView.addEventListener('pointerdown', (e) => {
 
 // the others slide aside instead of jumping (FLIP: note where they were, move the node, play the difference)
 function reorderTo(btn, ref) {
-  const sibs = [...toolView.querySelectorAll('.ib:not(.hidden)')].filter((x) => x !== btn);
+  const sibs = [...toolView.querySelectorAll('.ib:not(.hidden):not(.off)')].filter((x) => x !== btn);
   const was = new Map(sibs.map((x) => [x, x.getBoundingClientRect().left]));
   toolView.insertBefore(btn, ref);
   keepSettingsLast();
@@ -2162,7 +2171,7 @@ toolView.addEventListener('pointermove', (e) => {
   dragBtn.style.transform = `translateX(${dx}px) scale(1.12)`;
   const r = dragBtn.getBoundingClientRect(), center = r.left + r.width / 2, before = dragBtn.offsetLeft;
   const gear = settingsBtn();
-  for (const sib of toolView.querySelectorAll('.ib:not(.hidden)')) {
+  for (const sib of toolView.querySelectorAll('.ib:not(.hidden):not(.off)')) {
     if (sib === dragBtn || sib === gear) continue;
     const sr = sib.getBoundingClientRect(), sc = sr.left + sr.width / 2;
     if (center < sc && (dragBtn.compareDocumentPosition(sib) & Node.DOCUMENT_POSITION_FOLLOWING)) { reorderTo(dragBtn, sib); break; }
@@ -2675,43 +2684,101 @@ function renderSpeedo() {
 }
 
 // ------------------------------------------------------------ settings, as rows under the pill
-const SETTINGS_UI = [
-  ['button', 'tour', 'What Poyzen can do', 'Show me'],
-  ['seg', 'lang', 'Language', [['en', 'English'], ['fa', 'فارسی']]],
-  ['monitor', 'monitor', 'Screen'],
-  ['scale', 'uiScale', 'Island size'],
-  ['button', 'music', 'Local music', 'Open'],
-  ['toggle', 'musicEnabled', 'Music player'],
-  ['toggle', 'autoStart', 'Start with Windows'],
-  ['toggle', 'autoUpdate', 'Update automatically'],
-  ['toggle', 'toolsFold', 'Fold extra tools behind an arrow'],
-  ['seg', 'face', 'Resting pill shows', [['eyes', 'Eyes'], ['clock', 'Clock']]],
-  ['seg', 'calendar', 'Date', [['gregorian', 'Greg.'], ['shamsi', 'Shamsi'], ['shamsi-fa', 'شمسی'], ['both', 'Both']]],
-  ['toggle', 'autoHide', 'Hide while a window is underneath'],
-  ['toggle', 'hideVideo', 'Stay out of the way for videos'],
-  ['eyes', 'eyeStyle', 'Eye style'],
-  ['swatch', 'skin', 'Theme', ['black', 'ember', 'venom', 'sketch', 'iris']],        // cloud, water, lava and ice are parked until they are finished
-  ['toggle', 'musicReact', 'Theme reacts to music'],
-  ['toggle', 'visuals', 'Night sky with music (black theme)'],
-  ['toggle', 'playerTheme', 'Player window wears the theme'],
-  ['step', 'notifSeconds', 'Notification stays for', 2, 10, 's'],
-  ['button', 'dnd', "Hide Windows' own banners", 'Open'],
-  ['toggle', 'copyPreview', 'Show what was copied'],
-  ['toggle', 'clipHistory', 'Clipboard history'],
-  ['toggle', 'deviceAlerts', 'Charger and Bluetooth'],
-  ['toggle', 'downloadAlerts', 'Finished downloads'],
-  ['toggle', 'shelf', 'File shelf'],
-  ['toggle', 'netAlerts', 'Internet and VPN changes'],
-  ['toggle', 'sensorDot', 'Microphone / camera in use'],
-  ['toggle', 'smartCopy', 'Smart copy: links, sums, dates'],
-  ['toggle', 'noteHotkey', 'Ctrl+Alt+N note · Ctrl+Alt+T text grab'],
+// Settings are split in four tabs so nothing is a long scroll. Each tab is a short list of rows.
+const SET_TABS = [['general', 'General'], ['look', 'Look'], ['tools', 'Tools'], ['alerts', 'Alerts']];
+// the buttons on the pill that can be switched off: [key, icon, label]. The gear stays (it is the way back).
+const PILL_TOOLS = [
+  ['play', 'play', 'Play / Pause'], ['screenshot', 'shot', 'Screenshot'], ['ocr', 'scan', 'Text grab'], ['clips', 'clipboard', 'Clipboard'],
+  ['music', 'music', 'Music'], ['notes', 'jot', 'Notes'], ['vault', 'key', 'Passwords'], ['speedo', 'shield', 'VPN'],
+  ['timer', 'timer', 'Timer'], ['inbox', 'bell', 'Notifications'],
 ];
+const SETTINGS_UI = {
+  general: [
+    ['button', 'tour', 'What Poyzen can do', 'Show me'],
+    ['seg', 'lang', 'Language', [['en', 'English'], ['fa', 'فارسی']]],
+    ['monitor', 'monitor', 'Screen'],
+    ['scale', 'uiScale', 'Island size'],
+    ['toggle', 'autoStart', 'Start with Windows'],
+    ['toggle', 'autoUpdate', 'Update automatically'],
+    ['toggle', 'autoHide', 'Hide while a window is underneath'],
+    ['toggle', 'hideVideo', 'Stay out of the way for videos'],
+    ['toggle', 'noteHotkey', 'Keyboard shortcuts'],
+    ['key', 'keyNote', 'Quick note', 'Ctrl+Alt+N'],
+    ['key', 'keyOcr', 'Text grab', 'Ctrl+Alt+T'],
+    ['about'],
+  ],
+  look: [
+    ['swatch', 'skin', 'Theme', ['black', 'ember', 'venom', 'sketch', 'iris']],        // cloud, water, lava and ice are parked until they are finished
+    ['eyes', 'eyeStyle', 'Eye style'],
+    ['seg', 'face', 'Resting pill shows', [['eyes', 'Eyes'], ['clock', 'Clock']]],
+    ['seg', 'calendar', 'Date', [['gregorian', 'Greg.'], ['shamsi', 'Shamsi'], ['shamsi-fa', 'شمسی'], ['both', 'Both']]],
+    ['toggle', 'musicReact', 'Theme reacts to music'],
+    ['toggle', 'visuals', 'Night sky with music (black theme)'],
+    ['toggle', 'playerTheme', 'Player window wears the theme'],
+  ],
+  tools: [
+    ['head', 'Show on the pill'],
+    ['tiles', 'toolsOff'],
+    ['toggle', 'toolsFold', 'Fold extra tools behind an arrow'],
+    ['head', 'Features'],
+    ['toggle', 'musicEnabled', 'Music player'],
+    ['button', 'music', 'Local music', 'Open'],
+    ['toggle', 'clipHistory', 'Clipboard history'],
+    ['toggle', 'shelf', 'File shelf'],
+    ['toggle', 'smartCopy', 'Smart copy: links, sums, dates'],
+  ],
+  alerts: [
+    ['step', 'notifSeconds', 'Notification stays for', 2, 10, 's'],
+    ['button', 'dnd', "Hide Windows' own banners", 'Open'],
+    ['toggle', 'copyPreview', 'Show what was copied'],
+    ['toggle', 'deviceAlerts', 'Charger and Bluetooth'],
+    ['toggle', 'downloadAlerts', 'Finished downloads'],
+    ['toggle', 'netAlerts', 'Internet and VPN changes'],
+    ['toggle', 'sensorDot', 'Microphone / camera in use'],
+  ],
+};
+let setTab = 'general';          // the tab Settings was left on
 const EYE_STYLES = ['round', 'venom', 'sleepy', 'sad', 'robot', 'wide'];   // drawn in style.css, picked in Settings
 function renderSettings() {
   $('#stack-clear').classList.add('hidden');
   const s = st.settings || {};
-  SETTINGS_UI.forEach(([type, key, label, a, b, unit], i) => {
+  if (!SETTINGS_UI[setTab]) setTab = 'general';
+  stackList.classList.add('has-tabs');           // the tab bar sticks to the very top of the list
+  const bar = document.createElement('div'); bar.className = 'row set tabs';
+  for (const [id, text] of SET_TABS) {
+    const bt = document.createElement('button'); bt.textContent = text; if (id === setTab) bt.className = 'on';
+    bt.addEventListener('click', () => { if (setTab === id) return; setTab = id; renderStack(); stackList.scrollTop = 0; });
+    bar.appendChild(bt);
+  }
+  stackList.appendChild(bar);
+  SETTINGS_UI[setTab].forEach(([type, key, label, a, b, unit], i) => {
     if (key === 'music' && s.musicEnabled === false) return;          // switched off: the Open row goes away too
+    if (type === 'about') { renderAbout(); return; }
+    if (type === 'key' && s.noteHotkey === false) return;            // shortcuts switched off: nothing to change
+    if (type === 'head') {
+      const h = document.createElement('div'); h.className = 'row set info head'; h.textContent = key; stackList.appendChild(h); return;
+    }
+    if (type === 'tiles') {
+      // one tile per tool button: lit = on the pill, dim = switched off
+      const off = new Set(Array.isArray(s.toolsOff) ? s.toolsOff : []);
+      const grid = document.createElement('div'); grid.className = 'row moretools settiles'; grid.style.setProperty('--i', Math.min(i, 6));
+      for (const [tk, icon, name] of PILL_TOOLS) {
+        if (tk === 'speedo' && !speedo.present) continue;               // no Speedo on this PC: nothing to switch
+        const t = document.createElement('button'); t.className = 'mtile stile' + (off.has(tk) ? '' : ' show');
+        t.title = off.has(tk) ? 'Show on the pill' : 'Hide from the pill';
+        const ic = document.createElement('span'); ic.className = 'mi'; ic.innerHTML = svg(icon);
+        const lb = document.createElement('span'); lb.className = 'ml'; lb.textContent = name;
+        t.append(ic, lb);
+        t.addEventListener('click', () => {
+          const now = new Set(Array.isArray((st.settings || {}).toolsOff) ? st.settings.toolsOff : []);
+          if (now.has(tk)) now.delete(tk); else now.add(tk);
+          t.classList.toggle('show', !now.has(tk));
+          window.qazi.setSetting('toolsOff', [...now]);
+        });
+        grid.appendChild(t);
+      }
+      stackList.appendChild(grid); return;
+    }
     const row = document.createElement('div'); row.className = 'row set'; row.style.setProperty('--i', Math.min(i, 6));
     const l = document.createElement('span'); l.className = 'lbl'; l.textContent = label; row.appendChild(l);
     if (type === 'toggle') {
@@ -2773,12 +2840,63 @@ function renderSettings() {
         list.forEach((m) => { if (!m.primary || list.length > 1) add(m.id, (m.n || '?') + (m.primary ? ' ★' : ''), m.w + '×' + m.h); });
         if (pick !== 'primary' && !list.some((m) => m.id === pick)) { const b0 = seg.firstChild; if (b0) b0.className = 'on'; }   // the picked screen is unplugged: the island is on the primary one
       });
+    } else if (type === 'key') {
+      // a shortcut: click it, press the new keys. Esc cancels.
+      const now = s[key] || a, bad = !!s[key === 'keyNote' ? 'keyNoteFail' : 'keyOcrFail'];
+      const bt = document.createElement('button'); bt.className = 'keycap' + (bad ? ' bad' : ''); bt.textContent = now + (bad ? ' ⚠' : '');
+      bt.title = bad ? 'Another program already uses this shortcut. Click to pick another' : 'Click, then press the new keys';
+      bt.addEventListener('click', () => captureKey(key, bt, now, s));
+      row.appendChild(bt);
+      if (now !== a) {
+        const rs = document.createElement('button'); rs.className = 'ib small'; rs.innerHTML = svg('reset'); rs.title = 'Back to ' + a;
+        rs.addEventListener('click', () => window.qazi.setSetting(key, a));
+        row.appendChild(rs);
+      }
     } else if (type === 'button') {
       const bt = document.createElement('button'); bt.className = 'go'; bt.textContent = a; bt.addEventListener('click', () => { if (key === 'tour') setStack(true, 'tour'); else if (key === 'music') setStack(true, 'music'); else window.qazi.action(key); });
       row.appendChild(bt);
     }
     stackList.appendChild(row);
   });
+}
+// Changing a shortcut: the button waits for the next key press. Needs Ctrl, Alt or Win (plus a letter, a digit or F1-F12), so a plain
+// letter can never be taken away from typing. Esc (or 8 s of nothing) leaves it as it was.
+let capturing = false;
+function captureKey(key, btn, was, s) {
+  if (capturing) return;
+  capturing = true;
+  const other = (key === 'keyNote' ? s.keyOcr : s.keyNote) || (key === 'keyNote' ? 'Ctrl+Alt+T' : 'Ctrl+Alt+N');
+  const orig = btn.textContent;
+  btn.classList.add('rec'); btn.textContent = 'Press keys…';
+  st.typing = true; syncMouse(); render(); window.qazi.setTyping(true);
+  let timer = 0;
+  const mods = (e) => [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Win'].filter(Boolean);
+  const say = (text) => { btn.textContent = text; };
+  const done = () => {
+    clearTimeout(timer); window.removeEventListener('keydown', onKey, true); window.removeEventListener('keyup', onUp, true);
+    capturing = false; btn.classList.remove('rec'); btn.textContent = orig;
+    closeTyping(true);
+  };
+  const onUp = (e) => { e.preventDefault(); if (!['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return; const m = mods(e); say(m.length ? m.join('+') + '+…' : 'Press keys…'); };
+  const onKey = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === 'Escape') { done(); return; }
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) { say(mods(e).join('+') + '+…'); return; }
+    const m = /^Key([A-Z])$/.exec(e.code) || /^Digit(\d)$/.exec(e.code) || /^Numpad(\d)$/.exec(e.code) || /^(F(?:[1-9]|1[0-2]))$/.exec(e.code);
+    if (!m) { say('Not a valid key'); return; }
+    const mm = mods(e);
+    if (!mm.some((x) => x !== 'Shift')) { say('Add Ctrl or Alt'); return; }
+    const combo = ['Ctrl', 'Alt', 'Shift', 'Win'].filter((x) => mm.includes(x)).concat(m[1]).join('+');
+    if (combo.toLowerCase() === String(other).toLowerCase()) { say('Already used'); return; }
+    window.removeEventListener('keydown', onKey, true);
+    if (combo !== was) window.qazi.setSetting(key, combo);
+    done();
+  };
+  window.addEventListener('keydown', onKey, true); window.addEventListener('keyup', onUp, true);
+  timer = setTimeout(done, 8000);
+}
+function renderAbout() {
+  const s = st.settings || {};
   const info = document.createElement('div'); info.className = 'row set info';
   info.textContent = (s.appName || 'Poyzen') + ' ' + (s.version || '');
   const up = document.createElement('button'); up.className = 'go'; up.textContent = st.update ? 'Install ' + st.update : 'Check for updates';
@@ -2818,7 +2936,7 @@ function renderTour() {
     const b = document.createElement('b'); b.textContent = title;
     const d = document.createElement('span'); d.className = 'dim'; d.textContent = text;
     lbl.append(b, d); row.append(ic, lbl);
-    if (keys) { const k = document.createElement('span'); k.className = 'keys'; k.textContent = keys; row.appendChild(k); }
+    if (keys) { const k = document.createElement('span'); k.className = 'keys'; const sk = (st.settings || {})[act === 'ocr' ? 'keyOcr' : 'keyNote']; k.textContent = (sk || keys.replace(/ /g, '+')).replace(/\+/g, ' '); row.appendChild(k); }
     if (act) {
       row.title = 'Try it';
       row.addEventListener('click', () => { st.holdUntil = Date.now() + 6000; const bt = $('[data-act="' + act + '"]'); if (act === 'ocr') setStack(false); if (bt) bt.click(); });
@@ -2882,6 +3000,9 @@ const applySettings = (s) => {
   st.face = s.face === 'clock' ? 'clock' : 'eyes';
   face.dataset.eyes = EYE_STYLES.includes(s.eyeStyle) ? s.eyeStyle : 'round';
   applyToolOrder(s.toolOrder);
+  applyToolsOff(s.toolsOff);
+  $('#t-notes').title = 'Quick note (' + (s.keyNote || 'Ctrl+Alt+N') + ')';
+  $('[data-act="ocr"]').title = 'Grab text from the screen: drag a box around it (' + (s.keyOcr || 'Ctrl+Alt+T') + ')';
   st.settings = s; st.lastUser = s.lastUser || '';
   if ((s.musicFolder || '') !== local.folder) { local.folder = s.musicFolder || ''; scanLocal(); }
   else if (st.stackOpen && st.stackKind === 'music') renderStack();

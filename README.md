@@ -28,13 +28,14 @@ catches your notifications, remembers what you copied, holds your files, and bli
 - **Local music.** Pick a folder once; the music button in the menu lists every track, a click plays it right on the pill (cover and title from the file's tags, shuffle, next/previous, scrubber). A small speaker button on the player opens a volume slider in place, inside the same pill.
 - **Player window.** One click opens a small separate player: big cover, seek bar, volume, search and the full track list. The pill then leaves the music to it, and takes it back when the window is closed.
 - **Lyrics.** The player window has a Lyrics button: synced lyrics from [LRCLIB](https://lrclib.net) glide with the song, tap a line to jump there, ±10 s buttons, a per-song timing nudge, or load your own `.lrc` file. Only the title, artist and length of the playing song are sent, and only after you have opened Lyrics once.
+- **Lyric cards.** In the player's Lyrics view, put the cursor on a line and press the small picture button: pick up to four lines, a Story (9:16) or Square (1:1) shape, and a look (cover, colour, light, black; Persian lines and titles are laid out right-to-left, and the Persian translation can be added). Copy it or save it as a PNG. It is drawn on your machine; nothing is uploaded.
 - **Notifications in one line.** Click to open that chat. While you are using the pill they wait beside it instead of taking it over.
 - **One hover away.** Screenshot, text grab, clipboard history, quick note, passwords, timer, notifications, settings.
 - **Calendar.** Click the date on the tray and a month opens under the pill, in Gregorian or Shamsi (one switch). Days with a reminder wear a dot; click a day to see its reminders, and the **+** to add one (`18:30 gym`, `at 6pm gym`). *Settings → Date* only changes how the date reads on the tray.
 - **Smart copy.** A copied link can be opened, a sum gets its answer, a date its twin in the other calendar (Gregorian ⇄ Shamsi), a colour its swatch.
 - **File shelf.** Drop files on the pill; up to five sit there side by side until you drag them out again.
 - **Timer.** Stays in sight while it runs, even over a fullscreen app.
-- **Settings inside the island.** No extra windows.
+- **Settings inside the island.** No extra windows. Four short tabs: General, Look, Tools, Alerts. *Settings → Tools* has a tile for every button on the pill; tap one to hide it from the pill (the gear always stays).
 - **Tools fold behind an arrow.** When the tool row grows past nine tools, the extra ones wait behind a small arrow before the gear and open as a second pill. *Settings → Fold extra tools behind an arrow* switches it off.
 - **Persian interface.** *Settings → Language* switches the whole interface (the pill and the player window) between English and فارسی. Anything not translated yet simply stays in English.
 - **Multiple screens.** *Settings → Screen* puts the island on the primary display or on any connected one; a full-screen film on another screen leaves it alone.
@@ -42,7 +43,8 @@ catches your notifications, remembers what you copied, holds your files, and bli
 On its first start Poyzen says hello and shows a list of everything it can do; it stays in the settings under *What Poyzen can do*. A click on a row tries the thing itself.
 And also:
 
-- **Quick notes.** `Ctrl+Alt+N` from anywhere, type one line, Enter. A time in the line (`call Ali in 20m`, `at 18:30 gym`, «۱۰ دقیقه دیگه چای») turns it into a reminder.
+- **Your own shortcuts.** *Settings → General → Keyboard shortcuts*: click a shortcut, press the new keys (Ctrl or Alt plus a letter, digit or F1–F12). A shortcut that another program already owns is marked in red.
+- **Quick notes.** `Ctrl+Alt+N` (changeable) from anywhere, type one line, Enter. A time in the line (`call Ali in 20m`, `at 18:30 gym`, «۱۰ دقیقه دیگه چای») turns it into a reminder.
 - **Passwords.** Generate one, confirm, and it asks which site and which e-mail it is for. Stored encrypted with your Windows account (DPAPI); copies clear themselves from the clipboard after 30 seconds.
 - **Text grab.** `Ctrl+Alt+T`, drag a box, and the text in it is on your clipboard. English is read by Windows' own OCR; Persian by a bundled Tesseract. Nothing leaves your machine.
 - **Clipboard history** with images and pins.
