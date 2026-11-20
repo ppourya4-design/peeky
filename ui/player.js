@@ -374,6 +374,11 @@ function lyrRender() {
     lnEl.querySelectorAll('.ln').forEach((row) => {
       const tr = row.querySelector('.tr'), x = row.querySelector('.x');
       if (!tr || !x || !x.clientWidth) return;
+      // the (invisible) time badge still holds its slot, so the text starts
+      // indented while the translation row starts at the edge: shift the
+      // translation by the same indent so it sits exactly under the text
+      const dx = Math.round(x.getBoundingClientRect().left - row.getBoundingClientRect().left - 10);
+      if (dx > 2) tr.style.marginLeft = dx + 'px';
       const rg = document.createRange(); rg.selectNodeContents(x);
       if (rg.getBoundingClientRect().width / x.clientWidth > 0.72) row.classList.add('trc');
     });
