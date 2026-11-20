@@ -261,16 +261,43 @@ document.addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target
 
 // ---------------------------------------------------------------- lyrics (LRCLIB)
 // The Lyrics button turns the player into a lyrics view: small cover and title on top, the lyrics gliding with the song, ±10s buttons.
-var L = { on: false, key: '', tok: 0, state: 'idle', data: null, off: 0, active: -2, els: [], ws: [], wt: [], manual: 0, manualAt: 0, timer: 0 };
+var L = { on: false, key: '', tok: 0, state: 'idle', data: null, off: 0, active: -2, els: [], ws: [], wt: [], manual: 0, manualAt: 0, timer: 0, tr: false, fa: null, en: false, trBusy: false };
+try { L.tr = localStorage.getItem('poyzen.lyr.tr') === '1'; } catch { /* not remembered */ }
 // how the sung word shows: 'line' = the whole line lights up, 'fill' = every word fills as it is sung, 'pop' = the word lifts and lights up
 let WM = 'fill'; try { const m = localStorage.getItem('poyzen.lyr.wm'); if (m === 'line' || m === 'fill' || m === 'pop') WM = m; } catch { /* default */ }
-const lyEl = $('#lyrics'), lnEl = $('#lines'), lmsg = $('#lmsg'), lpill = $('#lpill'), tmEl = $('#timing');
+const lyEl = $('#lyrics'), lnEl = $('#lines'), lmsg = $('#lmsg'), lpill = $('#lpill'), tmEl = $('#timing'), trpill = $('#trpill');
 const lyrKey = () => (S.on && S.title ? S.title + '\u0001' + (S.artist || '') : '');
 const offText = (ms) => (ms > 0 ? '+' : ms < 0 ? '−' : '') + (Math.abs(ms) / 1000).toFixed(1) + 's';
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const msgBox = (icon, head, text, acts) => `<div class="big">${icon}</div><h3>${esc(head)}</h3><p>${esc(text)}</p>${acts ? '<div class="acts"><button id="l-again">' + I.again + 'Search again</button><button id="l-file">' + I.file + 'Load .lrc file</button></div>' : ''}`;
 
+const lyrLines = (r) => (r && r.synced && r.synced.length) ? r.synced.map((x) => x[1]) : (r && Array.isArray(r.plain)) ? r.plain : (r && r.plain) ? Lyr.parsePlain(r.plain) : [];
+function trPillPaint() {
+  const s = L.state;
+  trpill.hidden = !((s === 'synced' || s === 'plain') && L.en);
+  trpill.classList.toggle('on', L.tr);
+  trpill.classList.toggle('busy', L.trBusy);
+  trpill.querySelector('span').textContent = L.trBusy ? 'Translating…' : 'Translate';
+}
+async function trFetch() {
+  if (!L.en || L.fa || L.trBusy || !L.data) return;
+  const key = L.key, tok = L.tok, cached = Lyr.store.get(key + '#fa');
+  if (Array.isArray(cached)) { L.fa = cached; lyrRender(); lyrScroll(); return; }
+  L.trBusy = true; trPillPaint();
+  try {
+    const fa = await Lyr.translateFa(lyrLines(L.data));
+    if (tok === L.tok && key === L.key && fa.some((x) => x)) { L.fa = fa; Lyr.store.put(key + '#fa', fa); }
+  } catch { /* offline: the lyrics just stay untranslated */ }
+  L.trBusy = false; trPillPaint(); lyrRender(); lyrScroll();
+}
+trpill.addEventListener('click', () => {
+  L.tr = !L.tr;
+  try { localStorage.setItem('poyzen.lyr.tr', L.tr ? '1' : '0'); } catch { /* not remembered */ }
+  if (L.tr) trFetch();
+  trPillPaint(); lyrRender(); lyrScroll();
+});
 function lyrPill() {
+  trPillPaint();
   const s = L.state, p = lpill;
   p.hidden = s === 'idle'; p.className = 'lpill';
   p.innerHTML = s === 'search' ? '<i></i>Searching…' : s === 'synced' ? '<i></i>Synced' + (L.off ? ' · ' + offText(L.off) : '') : s === 'plain' ? 'Unsynced' : s === 'instr' ? 'Instrumental' : s === 'error' ? 'Offline' : s === 'none' ? 'No lyrics' : '';
@@ -335,6 +362,7 @@ function lyrRender() {
       const x = document.createElement('span'); x.className = 'x'; x.dir = 'auto';
       if (s === 'synced' && WM !== 'line' && text) buildWords(x, rows, i); else x.textContent = text || '♪';
       if (t >= 0) row.append(tm, x); else row.append(x);
+      if (L.tr && L.fa && L.fa[i]) { const tr = document.createElement('div'); tr.className = 'tr'; tr.textContent = L.fa[i]; row.appendChild(tr); }
       row.style.setProperty('--d', 4);
       frag.appendChild(row); L.els.push(row);
     });
@@ -349,7 +377,7 @@ function lyrRender() {
 }
 function setLyr(state) { L.state = state; lyrPill(); lyrRender(); }
 function applyLyr(r) {
-  L.data = r;
+  L.data = r; L.fa = null; L.en = !!(r && !r.instrumental && Lyr.isEnglish(lyrLines(r)));
   const rd = r && r.dur > 0 && S.dur > 0 ? (S.dur / 1000) / r.dur : 1;      // a slowed / sped-up copy of the song: stretch the
   if (r && r.synced && rd > 0.7 && rd < 1.45 && Math.abs(rd - 1) > 0.03)    // line stamps (and word stamps) by the same ratio
     L.data = { ...r, synced: r.synced.map(([t, x, w]) => [Math.round(t * rd), x, w ? w.map(([wt, wx]) => [Math.round(wt * rd), wx]) : w]) };
@@ -357,6 +385,7 @@ function applyLyr(r) {
   else if (r.synced && r.synced.length) setLyr('synced');
   else if (r.plain) { r.plain = Array.isArray(r.plain) ? r.plain : Lyr.parsePlain(r.plain); setLyr('plain'); }
   else setLyr('none');
+  if (L.tr && L.en) trFetch();
 }
 async function lyrSearch(tok) {
   try {
@@ -369,7 +398,7 @@ async function lyrSearch(tok) {
 function lyrTrack(force) {
   const key = lyrKey();
   if (key === L.key && !force) return;
-  L.key = key; L.tok++; clearTimeout(L.timer); L.data = null; L.off = key ? Lyr.store.offset(key) : 0;
+  L.key = key; L.tok++; clearTimeout(L.timer); L.data = null; L.fa = null; L.en = false; L.off = key ? Lyr.store.offset(key) : 0;
   if (!key) { setLyr('idle'); return; }
   const c = Lyr.store.get(key);
   if (c) { if (c.plain && !Array.isArray(c.plain)) c.plain = Lyr.parsePlain(c.plain); applyLyr(c); return; }

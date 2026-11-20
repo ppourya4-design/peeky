@@ -88,6 +88,37 @@ async function find(title, artist, dur) {     // dur in seconds (0 = unknown)
   return { src: 'lrclib', synced: synced.length ? synced : null, plain: hit.plainLyrics || null, dur: hit.duration || 0, instrumental: !!hit.instrumental && !synced.length && !hit.plainLyrics };
 }
 
+// ---- translation to Persian (the public Google Translate endpoint, no key;
+// only the song's own lyric lines are sent, and the result is cached per song)
+const isEnglish = (lines) => {          // mostly Latin letters and (almost) no Arabic script
+  let lat = 0, ar = 0;
+  for (const l of lines || []) for (const ch of String(l)) {
+    if (/[A-Za-z]/.test(ch)) lat++; else if (/[\u0600-\u06FF]/.test(ch)) ar++;
+  }
+  return lat >= 20 && lat > ar * 4;
+};
+async function gtx(q) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 12000);
+  try {
+    const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=fa&dt=t&q=' + encodeURIComponent(q), { signal: ctl.signal });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const j = await r.json();
+    return (j[0] || []).map((seg) => seg[0]).join('');
+  } finally { clearTimeout(timer); }
+}
+async function translateFa(lines) {
+  // one request for the whole song (newlines keep the lines apart); any line the
+  // bulk answer misses or misaligns is then asked for on its own, in small batches
+  let out = [];
+  try { out = (await gtx(lines.map((l) => (l || '').trim() || '♪').join('\n'))).split('\n'); } catch { out = []; }
+  if (out.length !== lines.length) out = [];
+  const todo = [];
+  lines.forEach((l, i) => { if (!(out[i] || '').trim() && (l || '').trim()) todo.push(i); });
+  for (let k = 0; k < todo.length; k += 6)
+    await Promise.all(todo.slice(k, k + 6).map(async (i) => { try { out[i] = await gtx(lines[i]); } catch { out[i] = ''; } }));
+  return lines.map((l, i) => ((l || '').trim() ? (out[i] || '').trim() : ''));
+}
+
 // ---- cache (this window's own storage; the newest 150 songs are kept)
 const P = 'poyzen.lyr.';
 const store = {
@@ -105,5 +136,5 @@ const store = {
   setOffset(key, ms) { try { if (ms) localStorage.setItem(P + 'o.' + key, String(ms)); else localStorage.removeItem(P + 'o.' + key); } catch { /* ignore */ } },
   flag(name, set) { try { if (set) localStorage.setItem(P + 'f.' + name, '1'); return localStorage.getItem(P + 'f.' + name) === '1'; } catch { return false; } },
 };
-window.Lyr = { parseLRC, parsePlain, find, store };
+window.Lyr = { parseLRC, parsePlain, find, store, isEnglish, translateFa };
 })();
