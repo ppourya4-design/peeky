@@ -7,7 +7,9 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; user-select: none; }
-body { font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #fff; font-size: 13px; }
+@font-face { font-family: 'Vazirmatn'; src: url('fonts/Vazirmatn-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF, U+200C-200D; }
+@font-face { font-family: 'Vazirmatn'; src: url('fonts/Vazirmatn-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF, U+200C-200D; }
+body { font-family: 'Vazirmatn', "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #fff; font-size: 13px; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 
 /* ------------------------------------------------ the pill */
@@ -432,7 +434,7 @@ body.daylight #island .sep { background: rgba(24, 34, 47, .25); }
 
 /* ---- Persian interface: Arabic-script fonts, and the lists under the pill read right to left.
    The pill itself (icons, time, controls) keeps its order: those are not sentences. */
-body.fa { font-family: "Segoe UI Variable Text", "Segoe UI", Tahoma, system-ui, sans-serif; }
+body.fa { font-family: 'Vazirmatn', "Segoe UI Variable Text", "Segoe UI", Tahoma, system-ui, sans-serif; }
 body.fa #stack-list .row.set { direction: rtl; }
 body.fa #stack-list .row.set .seg,
 body.fa #stack-list .row.set .sws,
@@ -451,7 +453,7 @@ body.sketch {
   --ink: #1c2236; --paper: #f5eedb; --paper2: #ece2c6; --pencil: #e8b820;
   --dim: rgba(28, 34, 54, .62);
   color: var(--ink);
-  font-family: Georgia, "Palatino Linotype", "Book Antiqua", "Segoe UI Variable Text", "Segoe UI", serif;
+  font-family: 'Vazirmatn', Georgia, "Palatino Linotype", "Book Antiqua", "Segoe UI Variable Text", "Segoe UI", serif;
 }
 body.sketch #island, body.sketch.scene #island { background: var(--paper); box-shadow: none; }
 body.sketch #island.tucked, body.sketch #island.tucked.hover { background: var(--ink); }
