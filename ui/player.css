@@ -8,9 +8,9 @@ svg { display: block; }
 /* the window is transparent and shadowless; the card fills it edge to edge, with only a hairline ring */
 .card { position: absolute; inset: 20px; border-radius: 24px; background: #0b0b10; overflow: hidden; display: flex; flex-direction: column;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .09); }
-.bg { position: absolute; inset: -40px; background: center/cover no-repeat; filter: blur(46px) saturate(1.25); opacity: 0; transition: opacity .6s; pointer-events: none; }
-.bg.none { opacity: 0 !important; }
-.card.aur-on:not(.skin) .bg { opacity: .55; }        /* the ground is the cover itself, heavily blurred — one smooth colour wash, like his reference preview */
+.bg { position: absolute; inset: -40px; background: center/cover no-repeat; filter: blur(46px) saturate(1.3); opacity: .38; transition: opacity .4s; pointer-events: none; }
+.bg.none { opacity: 0; }
+.bg { display: none; }        /* the blurred cover would break up the smooth gradient */
 header, .nowp, .lib { position: relative; }
 
 header { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 8px 0 18px; flex: none; }
@@ -40,7 +40,7 @@ header { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 
 .seek.off { opacity: .35; pointer-events: none; }
 .times { width: 100%; display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; margin-top: -2px; }
 
-.ctl { display: flex; align-items: center; justify-content: space-between; padding: 0 22px; margin-top: 14px; }   /* spread calmly across the seek bar's width, like his reference preview — nothing bunched in the middle */
+.ctl { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 14px; }
 .ib { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: rgba(255, 255, 255, .85); transition: background .15s, transform .2s cubic-bezier(.3, 1.35, .45, 1), color .15s; }
 .ib svg { width: 19px; height: 19px; }
 .ib:hover { background: rgba(255, 255, 255, .14); color: #fff; }
@@ -93,7 +93,7 @@ header { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 
 .card.open .nowp { opacity: .18; transform: scale(.96); }
 
 /* the dock: Lyrics + List, bottom centre while the list is closed; it rides up with the sheet when it opens */
-.dock { position: absolute; z-index: 4; left: 0; right: 0; margin: 0 auto; width: max-content; top: calc(100% - 72px); display: flex; align-items: center; gap: 10px;
+.dock { position: absolute; z-index: 4; left: 0; right: 0; margin: 0 auto; width: max-content; top: calc(100% - 72px); display: flex; align-items: center; gap: 8px;
   transition: top .6s cubic-bezier(.22, 1, .36, 1); }
 .listbtn, .lyrbtn { position: relative; display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 12px 0 16px; border-radius: 15px;
   font-size: 12.5px; font-weight: 600; background: rgba(255, 255, 255, .09); color: #fff; opacity: .8;
@@ -234,7 +234,7 @@ body.sketch .card, body.iris .card { box-shadow: none; }
    "Synced" panel and the window goes back to its default look. A theme skin (nebula, venom...) keeps priority. */
 .aur, .shade { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .8s ease; }
 .aur { overflow: hidden; clip-path: inset(0 round 24px); }          /* blurred, moving children can leak past a rounded overflow:hidden: clip the layer itself */
-.shade { background: linear-gradient(180deg, rgba(5, 5, 8, .04) 0, rgba(5, 5, 8, .10) 42%, rgba(4, 4, 7, .52) 100%); }
+.shade { background: linear-gradient(180deg, rgba(5, 5, 8, .05) 0, rgba(5, 5, 8, .3) 38%, #060609 88%); }
 .card.aur-on:not(.skin) .aur, .card.aur-on:not(.skin) .shade { opacity: 1; }
 .card.aur-on:not(.skin) .pt-layer.on { opacity: .3; }            /* the default gradient stays underneath, quietly */
 .aur { background: radial-gradient(130% 85% at 50% 18%, var(--base, rgba(62, 70, 88, .5)), transparent 78%); }   /* the main colour floods the ground, softly */
@@ -242,16 +242,13 @@ body.sketch .card, body.iris .card { box-shadow: none; }
 .aur .b1 { width: 320px; height: 320px; left: -70px; top: -90px; background-color: var(--c1, #3e4658); opacity: var(--o1, .85); scale: var(--s1, 1); animation: aur1 19s ease-in-out infinite; }
 .aur .b2 { width: 280px; height: 280px; right: -100px; top: 50px; background-color: var(--c2, #2f3646); opacity: var(--o2, .6); scale: var(--s2, 1); animation: aur2 25s ease-in-out infinite; }
 .aur .b3 { width: 250px; height: 250px; left: 20px; top: 200px; background-color: var(--c3, #232a38); opacity: var(--o3, .45); scale: var(--s3, 1); animation: aur3 31s ease-in-out infinite; }
-.card.aur-on:not(.skin) .aur .b1 { opacity: calc(var(--o1, .85) * .5); }   /* over the blurred-cover ground the blobs only tint — the wash stays smooth */
-.card.aur-on:not(.skin) .aur .b2 { opacity: calc(var(--o2, .6) * .5); }
-.card.aur-on:not(.skin) .aur .b3 { opacity: calc(var(--o3, .45) * .5); }
 @keyframes aur1 { 0%, 100% { transform: translate(0, 0) rotate(0); } 33% { transform: translate(70px, 40px) rotate(18deg); } 66% { transform: translate(30px, 85px) rotate(-12deg); } }
 @keyframes aur2 { 0%, 100% { transform: translate(0, 0) rotate(0); } 33% { transform: translate(-60px, 70px) rotate(-16deg); } 66% { transform: translate(-25px, -20px) rotate(14deg); } }
 @keyframes aur3 { 0%, 100% { transform: translate(0, 0) rotate(0); } 33% { transform: translate(80px, -50px) rotate(20deg); } 66% { transform: translate(40px, -90px) rotate(-10deg); } }
 .card:not(.is-playing) .aur i { animation-play-state: paused; }   /* the colours rest while the music rests */
 @media (prefers-reduced-motion: reduce) { .aur .b1, .aur .b2, .aur .b3 { animation: none; } }
 .timing { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); background: rgba(14, 14, 18, .9); }   /* lyrics no longer ghost through the panel */
-.card.lyr-on:not(.skin) .shade { background: linear-gradient(180deg, rgba(5, 5, 8, .16) 0, rgba(5, 5, 8, .30) 36%, rgba(4, 4, 7, .66) 92%); }   /* a calmer ground behind the lyrics */
+.card.lyr-on:not(.skin) .shade { background: linear-gradient(180deg, rgba(5, 5, 8, .22) 0, rgba(5, 5, 8, .5) 34%, #060609 86%); }   /* a calmer ground behind the lyrics */
 
 /* ---------------------------------------------------------------- volume: a small pill from the speaker button instead of a full-width bar */
 .volbtn { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: rgba(255, 255, 255, .09); color: #fff; opacity: .8;
