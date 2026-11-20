@@ -2460,7 +2460,7 @@ dependencies = [
 
 [[package]]
 name = "poyzen"
-version = "2.1.41"
+version = "2.1.40"
 dependencies = [
  "base64 0.22.1",
  "ed25519-compact",

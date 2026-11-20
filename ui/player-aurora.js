@@ -86,11 +86,11 @@ function paintState(st) {
   st.lab.forEach((l, i) => {
     const wn = clamp(st.w[i], 0, 1), rgb = fromLab(...l);
     card.style.setProperty('--c' + (i + 1), `rgb(${rgb})`);
-    card.style.setProperty('--o' + (i + 1), (.36 + .6 * Math.pow(wn, .8)).toFixed(3));       // the bigger the share, the stronger
+    card.style.setProperty('--o' + (i + 1), (.3 + .6 * Math.pow(wn, .8)).toFixed(3));       // the bigger the share, the stronger
     card.style.setProperty('--s' + (i + 1), (.7 + .55 * wn).toFixed(3));                   // ... and the bigger the blob
   });
   const [r, g, b] = fromLab(...st.lab[0]);
-  card.style.setProperty('--base', `rgba(${r},${g},${b},.62)`);      // the main colour floods the ground — the whole card wears the cover's colour
+  card.style.setProperty('--base', `rgba(${r},${g},${b},.5)`);      // the main colour also floods the ground softly
 }
 function goTo(p, ms = 1500) {
   const to = toState(p);

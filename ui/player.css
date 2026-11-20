@@ -234,7 +234,7 @@ body.sketch .card, body.iris .card { box-shadow: none; }
    "Synced" panel and the window goes back to its default look. A theme skin (nebula, venom...) keeps priority. */
 .aur, .shade { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .8s ease; }
 .aur { overflow: hidden; clip-path: inset(0 round 24px); }          /* blurred, moving children can leak past a rounded overflow:hidden: clip the layer itself */
-.shade { background: linear-gradient(180deg, rgba(5, 5, 8, .02) 0, rgba(5, 5, 8, .16) 40%, color-mix(in srgb, var(--c1, #14161c) 32%, #050507) 92%); }
+.shade { background: linear-gradient(180deg, rgba(5, 5, 8, .05) 0, rgba(5, 5, 8, .3) 38%, #060609 88%); }
 .card.aur-on:not(.skin) .aur, .card.aur-on:not(.skin) .shade { opacity: 1; }
 .card.aur-on:not(.skin) .pt-layer.on { opacity: .3; }            /* the default gradient stays underneath, quietly */
 .aur { background: radial-gradient(130% 85% at 50% 18%, var(--base, rgba(62, 70, 88, .5)), transparent 78%); }   /* the main colour floods the ground, softly */
@@ -248,7 +248,7 @@ body.sketch .card, body.iris .card { box-shadow: none; }
 .card:not(.is-playing) .aur i { animation-play-state: paused; }   /* the colours rest while the music rests */
 @media (prefers-reduced-motion: reduce) { .aur .b1, .aur .b2, .aur .b3 { animation: none; } }
 .timing { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); background: rgba(14, 14, 18, .9); }   /* lyrics no longer ghost through the panel */
-.card.lyr-on:not(.skin) .shade { background: linear-gradient(180deg, rgba(5, 5, 8, .18) 0, rgba(5, 5, 8, .38) 34%, color-mix(in srgb, var(--c1, #14161c) 22%, #050507) 88%); }   /* a calmer ground behind the lyrics, still tinted by the cover */
+.card.lyr-on:not(.skin) .shade { background: linear-gradient(180deg, rgba(5, 5, 8, .22) 0, rgba(5, 5, 8, .5) 34%, #060609 86%); }   /* a calmer ground behind the lyrics */
 
 /* ---------------------------------------------------------------- volume: a small pill from the speaker button instead of a full-width bar */
 .volbtn { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: rgba(255, 255, 255, .09); color: #fff; opacity: .8;
