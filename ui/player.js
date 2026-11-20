@@ -265,25 +265,29 @@ var L = { on: false, key: '', tok: 0, state: 'idle', data: null, off: 0, active:
 try { L.tr = localStorage.getItem('poyzen.lyr.tr') === '1'; } catch { /* not remembered */ }
 // how the sung word shows: 'line' = the whole line lights up, 'fill' = every word fills as it is sung, 'pop' = the word lifts and lights up
 let WM = 'fill'; try { const m = localStorage.getItem('poyzen.lyr.wm'); if (m === 'line' || m === 'fill' || m === 'pop') WM = m; } catch { /* default */ }
-const lyEl = $('#lyrics'), lnEl = $('#lines'), lmsg = $('#lmsg'), lpill = $('#lpill'), tmEl = $('#timing'), trpill = $('#trpill');
+const lyEl = $('#lyrics'), lnEl = $('#lines'), lmsg = $('#lmsg'), lpill = $('#lpill'), tmEl = $('#timing');
 const lyrKey = () => (S.on && S.title ? S.title + '\u0001' + (S.artist || '') : '');
 const offText = (ms) => (ms > 0 ? '+' : ms < 0 ? '−' : '') + (Math.abs(ms) / 1000).toFixed(1) + 's';
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const msgBox = (icon, head, text, acts) => `<div class="big">${icon}</div><h3>${esc(head)}</h3><p>${esc(text)}</p>${acts ? '<div class="acts"><button id="l-again">' + I.again + 'Search again</button><button id="l-file">' + I.file + 'Load .lrc file</button></div>' : ''}`;
 
 const lyrLines = (r) => (r && r.synced && r.synced.length) ? r.synced.map((x) => x[1]) : (r && Array.isArray(r.plain)) ? r.plain : (r && r.plain) ? Lyr.parsePlain(r.plain) : [];
-function trPillPaint() {
-  const s = L.state;
-  trpill.hidden = !((s === 'synced' || s === 'plain') && L.en);
-  trpill.classList.toggle('on', L.tr);
-  trpill.classList.toggle('busy', L.trBusy);
-  trpill.querySelector('span').textContent = L.trBusy ? 'Translating…' : (Date.now() - L.trFailAt < 2500 ? 'Offline' : 'Translate');
+const trBtns = [...document.querySelectorAll('#trseg button')], trstat = $('#trstat');
+function paintTr() {
+  trBtns.forEach((b) => b.classList.toggle('on', (b.dataset.t === 'fa') === L.tr));
+  trstat.textContent = L.trBusy ? 'Translating…' : (Date.now() - L.trFailAt < 2500 ? 'Offline' : 'all songs');
 }
+trBtns.forEach((b) => b.addEventListener('click', () => {
+  L.tr = b.dataset.t === 'fa';
+  try { localStorage.setItem('poyzen.lyr.tr', L.tr ? '1' : '0'); } catch { /* not remembered */ }
+  if (L.tr) trFetch();
+  paintTr(); lyrRender(); lyrScroll();
+}));
 async function trFetch() {
   if (!L.en || L.fa || L.trBusy || !L.data) return;
   const key = L.key, tok = L.tok, cached = Lyr.store.get(key + '#fa');
   if (Array.isArray(cached)) { L.fa = cached; lyrRender(); lyrScroll(); return; }
-  L.trBusy = true; trPillPaint();
+  L.trBusy = true; paintTr();
   try {
     const fa = await Lyr.translateFa(lyrLines(L.data));
     if (tok === L.tok && key === L.key) {
@@ -291,23 +295,17 @@ async function trFetch() {
       else { L.trFailAt = Date.now(); setTimeout(trPillPaint, 2600); }      // nothing came back: say so on the pill instead of staying silent
     }
   } catch { if (tok === L.tok && key === L.key) { L.trFailAt = Date.now(); setTimeout(trPillPaint, 2600); } }
-  L.trBusy = false; trPillPaint(); lyrRender(); lyrScroll();
+  L.trBusy = false; paintTr(); lyrRender(); lyrScroll();
 }
-trpill.addEventListener('click', () => {
-  L.tr = !L.tr;
-  try { localStorage.setItem('poyzen.lyr.tr', L.tr ? '1' : '0'); } catch { /* not remembered */ }
-  if (L.tr) trFetch();
-  trPillPaint(); lyrRender(); lyrScroll();
-});
 function lyrPill() {
-  trPillPaint();
+  paintTr();
   const s = L.state, p = lpill;
   p.hidden = s === 'idle'; p.className = 'lpill';
   p.innerHTML = s === 'search' ? '<i></i>Searching…' : s === 'synced' ? '<i></i>Synced' + (L.off ? ' · ' + offText(L.off) : '') : s === 'plain' ? 'Unsynced' : s === 'instr' ? 'Instrumental' : s === 'error' ? 'Offline' : s === 'none' ? 'No lyrics' : '';
   if (s === 'search') p.classList.add('busy');
   if (s === 'synced') p.classList.add('ok');
-  p.title = s === 'synced' ? 'Timing and word animation' : '';
-  if (s !== 'synced') tmEl.hidden = true;
+  p.title = s === 'synced' ? 'Timing and word animation' : s === 'plain' ? 'Translation' : '';
+  if (s !== 'synced' && s !== 'plain') tmEl.hidden = true;
   $('#lyrbtn').classList.toggle('has', s === 'synced' || s === 'plain');
 }
 // word-by-word: an enhanced .lrc brings its own word times; otherwise the line's time is shared out between its words by their length
@@ -488,7 +486,7 @@ function nudge(ms) {
   $('#t-val').textContent = offText(L.off); lyrPill(); lpill.classList.toggle('on', !tmEl.hidden); L.active = -2;
 }
 lpill.addEventListener('click', () => {
-  if (L.state !== 'synced') return;
+  if (L.state !== 'synced' && L.state !== 'plain') return;
   tmEl.hidden = !tmEl.hidden; $('#t-val').textContent = offText(L.off); lpill.classList.toggle('on', !tmEl.hidden);
 });
 $('#t-minus').addEventListener('click', () => nudge(-100));

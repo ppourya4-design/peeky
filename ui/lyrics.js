@@ -106,6 +106,19 @@ async function gtx(q) {
     return (j[0] || []).map((seg) => seg[0]).join('');
   } finally { clearTimeout(timer); }
 }
+// Machine Persian comes out stiff and bookish; this bends it toward how people
+// actually talk (من را -> منو, می‌شود -> می‌شه) and repairs the missing ZWNJs.
+// Deliberately conservative: a small set of patterns that are safe to rewrite.
+const colloquial = (s) => String(s || '')
+  .replace(/((?:نمی|می))\s+/g, '$1\u200C')
+  .replace(/(\S) ها(?=[\s،.؛:!?؟]|$)/g, '$1‌ها')
+  .replace(/من را/g, 'منو').replace(/تو را/g, 'تورو').replace(/او را/g, 'اونو')
+  .replace(/این را/g, 'اینو').replace(/آن را/g, 'اونو')
+  .replace(/ما را/g, 'ما رو').replace(/شما را/g, 'شما رو')
+  .replace(/چه است/g, 'چیه').replace(/آن است/g, 'اونه')
+  .replace(/([^\s\u200Cا‌وهی]) است(?=[\s،.؛:!?؟]|$)/g, '$1ه')
+  .replace(/می‌شود/g, 'می‌شه').replace(/نمی‌شود/g, 'نمی‌شه')
+  .replace(/می‌شوند/g, 'می‌شن').replace(/نمی‌شوند/g, 'نمی‌شن');
 async function translateFa(lines) {
   // the app's own backend does the asking (the endpoints send no CORS headers,
   // so a page fetch can never read their answers); the direct fetch below is
@@ -114,7 +127,7 @@ async function translateFa(lines) {
   if (inv) {
     try {
       const r = await inv('translate_fa', { lines });
-      if (Array.isArray(r) && r.length === lines.length) return r.map((x) => String(x || '').trim());
+      if (Array.isArray(r) && r.length === lines.length) return r.map((x) => colloquial(String(x || '').trim()));
     } catch { /* fall through to the direct fetch */ }
   }
   // one request for the whole song (newlines keep the lines apart); any line the
@@ -126,7 +139,7 @@ async function translateFa(lines) {
   lines.forEach((l, i) => { if (!(out[i] || '').trim() && (l || '').trim()) todo.push(i); });
   for (let k = 0; k < todo.length; k += 6)
     await Promise.all(todo.slice(k, k + 6).map(async (i) => { try { out[i] = await gtx(lines[i]); } catch { out[i] = ''; } }));
-  return lines.map((l, i) => ((l || '').trim() ? (out[i] || '').trim() : ''));
+  return lines.map((l, i) => ((l || '').trim() ? colloquial((out[i] || '').trim()) : ''));
 }
 
 // ---- cache (this window's own storage; the newest 150 songs are kept)
