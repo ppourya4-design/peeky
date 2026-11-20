@@ -1,31 +1,44 @@
 // Lyrics translation (English -> Persian) for the player. It runs here, not in the page:
 // the free translation endpoints send no CORS headers, so the WebView can never read
 // their answers (the v2.1.28 in-page fetch failed silently for exactly that reason).
-// Order: one bulk request for the whole song, per-line retries for the gaps, and
-// MyMemory as a last resort. An engine that keeps failing is dropped after 3 misses.
-use std::time::Duration;
+// The asking reuses the app's own download path (URLDownloadToFileW, like the updater),
+// so no new dependencies are needed. Order: one bulk request for the whole song,
+// per-line retries for the gaps, and MyMemory as a last resort. An engine that
+// keeps failing is dropped after 3 misses.
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::Value;
+use windows::core::HSTRING;
+use windows::Win32::System::Com::Urlmon::URLDownloadToFileW;
 
-fn client() -> Option<reqwest::Client> {
-    reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Poyzen")
-        .build()
-        .ok()
+static SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// Percent-encode for a query value (everything but the unreserved set).
+fn enc(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() * 3);
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
 }
 
-async fn gtx(cli: &reqwest::Client, q: &str) -> Option<String> {
-    let resp = cli
-        .get("https://translate.googleapis.com/translate_a/single")
-        .query(&[("client", "gtx"), ("sl", "en"), ("tl", "fa"), ("dt", "t"), ("q", q)])
-        .send()
-        .await
-        .ok()?;
-    if !resp.status().is_success() {
-        return None;
-    }
-    let j: Value = resp.json().await.ok()?;
+fn get(url: &str) -> Option<String> {
+    let n = SEQ.fetch_add(1, Ordering::Relaxed);
+    let to: PathBuf = std::env::temp_dir().join(format!("poyzen-tr-{}-{n}.json", std::process::id()));
+    let _ = std::fs::remove_file(&to);
+    unsafe { URLDownloadToFileW(None, &HSTRING::from(url), &HSTRING::from(to.to_string_lossy().as_ref()), 0, None).ok()? };
+    let text = std::fs::read_to_string(&to).ok();
+    let _ = std::fs::remove_file(&to);
+    text
+}
+
+fn gtx(q: &str) -> Option<String> {
+    let url = format!("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=fa&dt=t&q={}", enc(q));
+    let j: Value = serde_json::from_str(&get(&url)?).ok()?;
     let mut out = String::new();
     for seg in j.get(0)?.as_array()? {
         if let Some(t) = seg.get(0).and_then(|v| v.as_str()) {
@@ -35,24 +48,15 @@ async fn gtx(cli: &reqwest::Client, q: &str) -> Option<String> {
     (!out.trim().is_empty()).then_some(out)
 }
 
-async fn mymemory(cli: &reqwest::Client, q: &str) -> Option<String> {
-    let resp = cli
-        .get("https://api.mymemory.translated.net/get")
-        .query(&[("q", q), ("langpair", "en|fa")])
-        .send()
-        .await
-        .ok()?;
-    if !resp.status().is_success() {
-        return None;
-    }
-    let j: Value = resp.json().await.ok()?;
+fn mymemory(q: &str) -> Option<String> {
+    let url = format!("https://api.mymemory.translated.net/get?q={}&langpair=en%7Cfa", enc(q));
+    let j: Value = serde_json::from_str(&get(&url)?).ok()?;
     let t = j.get("responseData")?.get("translatedText")?.as_str()?.trim().to_string();
     (!t.is_empty()).then_some(t)
 }
 
-pub async fn run(lines: Vec<String>) -> Vec<String> {
+pub fn run(lines: Vec<String>) -> Vec<String> {
     let mut out: Vec<String> = vec![String::new(); lines.len()];
-    let Some(cli) = client() else { return out };
 
     // 1) the whole song in one request; newlines keep the lines apart
     let joined = lines
@@ -60,7 +64,7 @@ pub async fn run(lines: Vec<String>) -> Vec<String> {
         .map(|l| if l.trim().is_empty() { "\u{266A}".to_string() } else { l.clone() })
         .collect::<Vec<_>>()
         .join("\n");
-    if let Some(all) = gtx(&cli, &joined).await {
+    if let Some(all) = gtx(&joined) {
         let parts: Vec<&str> = all.split('\n').collect();
         if parts.len() == lines.len() {
             for (i, p) in parts.iter().enumerate() {
@@ -79,7 +83,7 @@ pub async fn run(lines: Vec<String>) -> Vec<String> {
         if lines[i].trim().is_empty() || !out[i].is_empty() {
             continue;
         }
-        match gtx(&cli, &lines[i]).await {
+        match gtx(&lines[i]) {
             Some(t) => {
                 out[i] = t.trim().to_string();
                 fails = 0;
@@ -96,7 +100,7 @@ pub async fn run(lines: Vec<String>) -> Vec<String> {
         if lines[i].trim().is_empty() || !out[i].is_empty() {
             continue;
         }
-        match mymemory(&cli, &lines[i]).await {
+        match mymemory(&lines[i]) {
             Some(t) => {
                 out[i] = t;
                 fails = 0;

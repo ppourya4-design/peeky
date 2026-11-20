@@ -221,9 +221,9 @@ fn open_url(url: String) {
 fn update_check() -> String {
     update::check()
 }
-#[tauri::command]
-async fn translate_fa(lines: Vec<String>) -> Vec<String> {
-    translate::run(lines).await
+#[tauri::command(async)]
+fn translate_fa(lines: Vec<String>) -> Vec<String> {
+    translate::run(lines)
 }
 #[tauri::command]
 fn update_install() -> bool {
