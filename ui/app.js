@@ -876,6 +876,9 @@ island.addEventListener('wheel', (e) => {
 const MIME = { mp3: 'audio/mpeg', flac: 'audio/flac', wav: 'audio/wav', ogg: 'audio/ogg', opus: 'audio/ogg; codecs=opus', m4a: 'audio/mp4', aac: 'audio/aac' };
 // while this player is playing (or was paused a minute ago) the system's own session is not shown
 const localHolds = () => local.on && (local.loading || !local.audio.paused || Date.now() - local.pausedAt < 60000);
+// a track stays LOADED after the pill forgets it (60 s paused): the file is still in the
+// audio element, so the player window keeps showing it and Play resumes it in place
+const localLoaded = () => local.idx >= 0 && !!local.audio.src;
 const shuffleOn = () => !!(st.settings && st.settings.musicShuffle);
 const repeatMode = () => { const n = Number((st.settings || {}).musicRepeat); return n === 1 || n === 2 ? n : 0; };   // 0 off, 1 all, 2 one
 
@@ -1257,7 +1260,7 @@ function sendPlayer(force) {
   }
   if (force || sentCover !== local.coverId) { sentCover = local.coverId; out({ t: 'cover', id: local.coverId, data: local.cover }); }
   out({
-    t: 'state', ts: Date.now(), on: local.on, loading: local.loading, playing: local.on && (local.loading || !a.paused), idx: local.on ? local.idx : -1,
+    t: 'state', ts: Date.now(), on: local.on || localLoaded(), loading: local.loading, playing: (local.on || localLoaded()) && (local.loading || !a.paused), idx: (local.on || localLoaded()) ? local.idx : -1,
     title: m.title || '', artist: m.artist || '', pos: Math.round(a.currentTime * 1000), dur: isFinite(a.duration) ? Math.round(a.duration * 1000) : 0,
     shuffle: shuffleOn(), repeat: repeatMode(), count: local.list.length, vol: getVol(), mute: getMute(), scanning: local.scanning, folder: local.folder || '',
     // the window wears the pill's look: a skin brings its own animation, plain black takes the cover's colours (any source, not only local files)
@@ -1278,11 +1281,12 @@ window.qazi.onPlayerCmd((m) => {
     case 'play': playLocal(Number(m.i) || 0); break;
     case 'toggle':
       if (local.on) toggleLocal();
+      else if (localLoaded()) { local.on = true; toggleLocal(); }     // forgotten, not gone: resume where it stopped
       else if (n) playLocal(shuffleOn() ? Math.floor(Math.random() * n) : Math.max(local.idx, 0));
       break;
     case 'next': nextLocal(); break;
     case 'prev': prevLocal(); break;
-    case 'seek': if (local.on) seekLocal(Number(m.ms) || 0); break;
+    case 'seek': if (local.on || localLoaded()) { local.on = true; seekLocal(Number(m.ms) || 0); pushLocal(); } break;
     case 'shuffle': window.qazi.setSetting('musicShuffle', !shuffleOn()); break;
     case 'repeat': window.qazi.setSetting('musicRepeat', (repeatMode() + 1) % 3); break;
     case 'pick': window.qazi.musicPick(); break;
