@@ -90,7 +90,7 @@ function paintState(st) {
     card.style.setProperty('--s' + (i + 1), (.7 + .55 * wn).toFixed(3));                   // ... and the bigger the blob
   });
   const [r, g, b] = fromLab(...st.lab[0]);
-  card.style.setProperty('--base', `rgba(${r},${g},${b},.5)`);      // the main colour also floods the ground softly
+  card.style.setProperty('--base', `rgba(${r},${g},${b},.34)`);      // a soft flood over the blurred-cover ground
 }
 function goTo(p, ms = 1500) {
   const to = toState(p);
