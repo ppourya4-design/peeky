@@ -1,6 +1,6 @@
 [package]
 name = "poyzen"
-version = "2.1.40"
+version = "2.1.42"
 edition = "2021"
 
 [build-dependencies]
