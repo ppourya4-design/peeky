@@ -347,7 +347,7 @@ async fn player_open(app: tauri::AppHandle) {
     }
     let mut wb = tauri::WebviewWindowBuilder::new(&app, "player", tauri::WebviewUrl::App("player.html".into()))
         .title("Poyzen Player")
-        .inner_size(420.0, 560.0)
+        .inner_size(460.0, 660.0)
         .center()
         .decorations(false)
         .transparent(true)
