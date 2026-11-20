@@ -368,16 +368,6 @@ function lyrRender() {
       frag.appendChild(row); L.els.push(row);
     });
     lnEl.appendChild(frag);
-    // lines and translations are all centred; the (invisible) time badge
-    // still holds its slot at the row's left, so the text centres inside a
-    // box that starts after the badge — shift the translation by the same
-    // indent so its centre is exactly the text's centre
-    lnEl.querySelectorAll('.ln').forEach((row) => {
-      const tr = row.querySelector('.tr'), x = row.querySelector('.x');
-      if (!tr || !x) return;
-      const dx = Math.round(x.getBoundingClientRect().left - row.getBoundingClientRect().left - 10);
-      if (dx > 2) tr.style.marginLeft = dx + 'px';
-    });
     if (s === 'plain') lyEl.scrollTop = 0;
   } else if (s === 'search') {
     lmsg.innerHTML = '<div class="sker"><i style="width:86%"></i><i style="width:100%"></i><i style="width:62%"></i><i style="width:92%"></i><i style="width:48%"></i></div><p>Matching title, artist, album and length…</p>';
